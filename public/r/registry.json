@@ -1,0 +1,22 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "launchstudio-labs",
+  "homepage": "https://labs.launchstudio.space",
+  "items": [
+    {
+      "name": "empty-state",
+      "type": "registry:ui",
+      "title": "Empty State",
+      "description": "A polished empty state with five common product variants.",
+      "registryDependencies": ["button", "card", "empty"],
+      "dependencies": ["@phosphor-icons/react"],
+      "files": [
+        {
+          "path": "components/ui/empty-state.tsx",
+          "type": "registry:ui",
+          "target": "components/ui/empty-state.tsx"
+        }
+      ]
+    }
+  ]
+}

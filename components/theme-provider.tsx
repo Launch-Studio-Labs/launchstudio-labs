@@ -35,9 +35,15 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 function ThemeHotkey() {
-  const { resolvedTheme, setTheme } = useTheme()
+  const { forcedTheme, resolvedTheme, setTheme } = useTheme()
 
   React.useEffect(() => {
+    // A forced theme wins over anything set here, so the key would only write
+    // a preference the page never shows. Leave it to the root to decide.
+    if (forcedTheme) {
+      return
+    }
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.defaultPrevented || event.repeat) {
         return
@@ -63,7 +69,7 @@ function ThemeHotkey() {
     return () => {
       window.removeEventListener("keydown", onKeyDown)
     }
-  }, [resolvedTheme, setTheme])
+  }, [forcedTheme, resolvedTheme, setTheme])
 
   return null
 }
