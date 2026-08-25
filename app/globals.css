@@ -32,6 +32,11 @@
   /* Morphing on screen wants acceleration at both ends, and the built-in
        curves are too weak to read as intentional. */
   --ease-morph: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* For a box closing back down to content that has already shrunk. It leaves
+       immediately and lands softly. */
+  --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -171,14 +176,45 @@
     font-synthesis: none;
     scroll-behavior: smooth;
     overflow: hidden;
+
+    /*
+      Every run of text on the page breaks its lines the considered way, not
+      just the ones a component remembered to ask. `text-wrap` inherits, so
+      one declaration here reaches paragraphs, list items, labels, table
+      cells and any loose text a component happens to render.
+
+      `pretty` is the setting for running text: it looks at the last few
+      lines and refuses to leave a word stranded on its own.
+    */
+    text-wrap: pretty;
+  }
+
+  /*
+    Short display text takes `balance` instead — the two are values of one
+    property, so a run of text gets one or the other. Balance evens the
+    lengths of every line, which is what a headline wants and what a
+    paragraph cannot have: browsers give up past a handful of lines, and
+    evening out a whole paragraph would fight the measure it is set to.
+  */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  [data-slot$="-title"],
+  legend,
+  figcaption,
+  th {
+    text-wrap: balance;
   }
   h1,
   h2,
   h3 {
-    @apply leading-tight tracking-tight text-balance;
+    @apply leading-tight tracking-tight;
   }
   p {
-    @apply leading-normal text-pretty;
+    @apply leading-normal;
   }
   a {
     text-underline-position: from-font;

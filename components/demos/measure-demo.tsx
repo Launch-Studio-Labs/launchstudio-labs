@@ -13,6 +13,7 @@ import {
   PANEL_FONT_SIZE,
   SAMPLE_TEXT,
   clamp,
+  useElementHeight,
   useElementWidth,
   useSampleCharWidth,
 } from "@/components/demos/measuring"
@@ -94,6 +95,53 @@ function guideBackground(leading: number, color: string) {
   const odd = `color-mix(in oklab, ${color} 24%, transparent)`
   const even = `color-mix(in oklab, ${color} 12%, transparent)`
   return `repeating-linear-gradient(to bottom, ${odd} 0 ${lineHeight}px, ${even} ${lineHeight}px ${lineHeight * 2}px)`
+}
+
+/**
+ * The passage, set to a given width.
+ *
+ * The floor is what is eased, not the height. A box is never shorter than the
+ * text in it, so a line gained appears at once and in full — the box has
+ * already grown past the floor to hold it. A line lost leaves the floor where
+ * it was, and the box closes down onto the shorter text. Easing the height
+ * itself would mean hiding the new line until the box caught up, which is the
+ * one thing a column of text must not do.
+ */
+function SampleColumn({
+  width,
+  leading,
+  guideColor,
+  showGuides,
+}: {
+  width: number
+  leading: number
+  guideColor: string
+  showGuides: boolean
+}) {
+  const textRef = useRef<HTMLSpanElement>(null)
+  const textHeight = useElementHeight(textRef)
+
+  return (
+    <p
+      style={{
+        width,
+        minHeight: textHeight || undefined,
+        boxSizing: "content-box",
+        paddingInline: GUIDE_BLEED,
+        fontSize: PANEL_FONT_SIZE,
+        lineHeight: leading,
+        backgroundImage: showGuides
+          ? guideBackground(leading, guideColor)
+          : undefined,
+        borderRadius: showGuides ? GUIDE_RADIUS : undefined,
+      }}
+      className="transition-[min-height] duration-200 ease-settle motion-reduce:transition-none"
+    >
+      <span ref={textRef} className="block">
+        {SAMPLE_TEXT}
+      </span>
+    </p>
+  )
 }
 
 function Panel({
@@ -237,24 +285,12 @@ export function MeasureDemo({ className, ...props }: ComponentProps<"div">) {
           measure={appliedMeasure}
           leading={leadingFor(appliedMeasure)}
         >
-          <p
-            style={{
-              width: appliedWidth,
-              boxSizing: "content-box",
-              paddingInline: GUIDE_BLEED,
-              fontSize: PANEL_FONT_SIZE,
-              lineHeight: leadingFor(appliedMeasure),
-              backgroundImage: showGuides
-                ? guideBackground(
-                    leadingFor(appliedMeasure),
-                    GUIDE_COLORS.applied
-                  )
-                : undefined,
-              borderRadius: showGuides ? GUIDE_RADIUS : undefined,
-            }}
-          >
-            {SAMPLE_TEXT}
-          </p>
+          <SampleColumn
+            width={appliedWidth}
+            leading={leadingFor(appliedMeasure)}
+            guideColor={GUIDE_COLORS.applied}
+            showGuides={showGuides}
+          />
         </Panel>
 
         <Panel
@@ -262,21 +298,12 @@ export function MeasureDemo({ className, ...props }: ComponentProps<"div">) {
           measure={neglectedMeasure}
           leading={NEGLECTED_LEADING}
         >
-          <p
-            style={{
-              width: textWidth,
-              boxSizing: "content-box",
-              paddingInline: GUIDE_BLEED,
-              fontSize: PANEL_FONT_SIZE,
-              lineHeight: NEGLECTED_LEADING,
-              backgroundImage: showGuides
-                ? guideBackground(NEGLECTED_LEADING, GUIDE_COLORS.neglected)
-                : undefined,
-              borderRadius: showGuides ? GUIDE_RADIUS : undefined,
-            }}
-          >
-            {SAMPLE_TEXT}
-          </p>
+          <SampleColumn
+            width={textWidth}
+            leading={NEGLECTED_LEADING}
+            guideColor={GUIDE_COLORS.neglected}
+            showGuides={showGuides}
+          />
         </Panel>
       </DemoFrame>
 

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
  * same size — a count only means something if it is taken the same way twice.
  */
 export const SAMPLE_TEXT =
-  "There are always plenty of rivals to our work. We are always falling in love or quarrelling, looking for jobs or fearing to lose them, getting ill and recovering, following public affairs. If we let ourselves, we shall always be waiting for some distraction or other to end before we can really get down to our work. The only people who achieve much are those who want knowledge so badly that they seek it while the conditions are still unfavourable. Favourable conditions never come."
+  "The pursuit of the perfect espresso begins, as most important scientific investigations do, with somebody buying a much more expensive grinder than they intended. The dose is weighed to three decimal places, the beans are raked with a tiny collection of needles, and the portafilter is tamped with the concentration normally reserved for defusing explosives. The shot begins. Everyone watches in silence. Then someone takes a sip, pauses, and says, “There’s a little channeling.”"
 
 /** Shared by the columns and the rulers that measure them. */
 export const PANEL_FONT_SIZE = 15
@@ -43,6 +43,39 @@ export function useElementWidth(ref: RefObject<HTMLElement | null>) {
   }, [ref, read])
 
   return width
+}
+
+/**
+ * The height of an element, watched. Used to settle a box onto its content:
+ * text that rewraps changes height a whole line at a time, and CSS cannot
+ * smooth that on its own — a box whose content reflows never changes its own
+ * height value, so no transition is ever started.
+ *
+ * Measure the content, not the box: the box is at least as tall as this
+ * measurement, so reading the box back would be reading our own answer.
+ */
+export function useElementHeight(ref: RefObject<HTMLElement | null>) {
+  const [height, setHeight] = useState(0)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+
+    const read = () => {
+      const next = element.getBoundingClientRect().height
+      setHeight((current) => (Math.abs(current - next) > 0.5 ? next : current))
+    }
+
+    read()
+    const observer = new ResizeObserver(read)
+    observer.observe(element)
+    // The first measurement is taken before the webfont lands, and the text
+    // rewraps when it does.
+    void document.fonts?.ready.then(read)
+    return () => observer.disconnect()
+  }, [ref])
+
+  return height
 }
 
 /**

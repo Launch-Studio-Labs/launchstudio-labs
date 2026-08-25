@@ -36,7 +36,13 @@ export function PlaygroundShell({ children }: { children: ReactNode }) {
       <PlaygroundSidebar framed={framed} onFramedChange={setFramed} />
       <SidebarInset className="h-svh min-h-0 overflow-y-auto">
         <SidebarTrigger className="absolute top-6 left-5 z-10 size-10 md:hidden" />
-        <div className="flex min-h-full w-full items-center justify-center px-5 py-12 sm:px-8 lg:px-12">
+        {/*
+          Held at the top, not centred. A centred demo moves half of every
+          height change, so the controls above the box would drift the moment
+          the text under them rewrapped. The offset is a constant: it reads as
+          centred for the demos on the canvas, and it never moves.
+        */}
+        <div className="flex min-h-full w-full items-start justify-center px-5 pt-[30svh] pb-12 sm:px-8 lg:px-12">
           <DemoFrameProvider framed={framed}>{children}</DemoFrameProvider>
         </div>
       </SidebarInset>

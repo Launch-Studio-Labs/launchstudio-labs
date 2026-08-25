@@ -5,6 +5,7 @@ import { useRef, useState, type ComponentProps } from "react"
 import { DemoFrame } from "@/components/demos/demo-frame"
 import {
   PANEL_FONT_SIZE,
+  useElementHeight,
   useElementWidth,
   useSampleCharWidth,
 } from "@/components/demos/measuring"
@@ -20,9 +21,9 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
 const CARD_COPY = {
-  title: "Set your body copy once",
+  title: "Perfect coffee gear",
   description:
-    "Width and leading are the two settings that decide whether a paragraph is comfortable to read. Pick them once, at the top of your stylesheet, and every block of text on the site inherits a shape the eye can follow.",
+    "There is always another piece of equipment. This scale responds fourteen milliseconds faster than the last one. None of it solves the real problem, which is that they drink the coffee too hot to taste. Next month, another grinder.",
   cta: "Read the guide",
 }
 
@@ -53,6 +54,9 @@ function PracticeCard({
   width: number | string
   leading: number
 }) {
+  const copyRef = useRef<HTMLSpanElement>(null)
+  const copyHeight = useElementHeight(copyRef)
+
   return (
     <Card
       style={{ width, transitionDuration: CARD_TRANSITION }}
@@ -62,15 +66,22 @@ function PracticeCard({
     >
       <CardHeader>
         <CardTitle>{CARD_COPY.title}</CardTitle>
+        {/* A floor under the copy, eased on the card's own curve: as the card
+            narrows and the copy takes another line it appears at once and in
+            full, and as the card widens again the card closes down onto the
+            shorter copy rather than dropping to it. */}
         <CardDescription
           style={{
             fontSize: CARD_FONT_SIZE,
             lineHeight: leading,
+            minHeight: copyHeight || undefined,
             transitionDuration: CARD_TRANSITION,
           }}
-          className="transition-[line-height] ease-morph motion-reduce:transition-none"
+          className="transition-[line-height,min-height] ease-morph motion-reduce:transition-none"
         >
-          {CARD_COPY.description}
+          <span ref={copyRef} className="block">
+            {CARD_COPY.description}
+          </span>
         </CardDescription>
       </CardHeader>
       <CardFooter>
