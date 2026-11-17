@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Preview Worker for Launch Studio Labs. CI publishes pull-request
+  // previews with `wrangler preview` and never promotes a version, so this
+  // file does not deploy production.
+  "name": "launchstudio-labs",
+  "compatibility_date": "2026-11-17",
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true,
+    },
+  },
+  "assets": {
+    // `pnpm build:preview` writes the static export here.
+    "directory": "./out",
+    "not_found_handling": "404-page",
+    // `typography.html` is served at `/typography`, `index.html` at `/`.
+    "html_handling": "auto-trailing-slash",
+  },
+}

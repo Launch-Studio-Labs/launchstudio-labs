@@ -1,6 +1,7 @@
 import type { ComponentType } from "react"
 
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
+import { BolderOnPressDemo } from "@/components/demos/bolder-on-press-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
 
@@ -32,6 +33,11 @@ export const demos: Demo[] = [
     id: "body-copy-card",
     title: "Body copy card",
     component: BodyCopyDemo,
+  },
+  {
+    id: "bolder-on-press",
+    title: "Bolder on press",
+    component: BolderOnPressDemo,
   },
 ]
 
