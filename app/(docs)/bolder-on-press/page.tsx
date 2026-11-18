@@ -6,7 +6,7 @@ import { BolderOnPressShowcase } from "@/components/bolder-on-press-showcase"
 export const metadata: Metadata = {
   title: docsTitle("/bolder-on-press"),
   description:
-    "Make a tab label bolder when it is pressed or active, without the tabs or the underline moving.",
+    "Make a label bolder when it is pressed or selected without shifting the layout, plus a prompt that finds and fixes it across your codebase.",
 }
 
 export default function Page() {

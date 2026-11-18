@@ -1,3 +1,4 @@
+import { BOLDER_ON_PRESS_PROMPT } from "@/components/bolder-on-press-prompt"
 import { CopyButton } from "@/components/copy-button"
 import { BolderCompareDemo } from "@/components/demos/bolder-compare-demo"
 import { BolderOnPressDemo } from "@/components/demos/bolder-on-press-demo"
@@ -14,8 +15,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 
 const INTRO = [
-  "A tab that gets **bolder when you press it** confirms the press before anything else has changed. The catch is that heavier letters are wider. Change only `font-weight` and the label grows, the tab next to it shifts, and the underline jumps to a new width.",
-  "Here it is on the tabs from the Launch Studio homepage. Press and hold one: the label thickens at once, and nothing around it moves.",
+  "Setting the selected label **bolder** is a clear way to mark it. The catch is that heavier letters are wider. Change only `font-weight` and the label grows, the tab next to it shifts, and the underline jumps to a new width.",
+  "Here it is on the tabs from the Launch Studio homepage, with the fix in place. Press or switch tabs: the label thickens, and nothing around it moves.",
 ]
 
 const PROBLEM = [
@@ -23,48 +24,9 @@ const PROBLEM = [
 ]
 
 const FIX = [
-  "Make the label as wide as its bold self **before** it turns bold. A copy of the text, set in the bold weight, goes in `::after`. It is invisible and has no height, but it still counts toward the width. When the real text thickens, it grows into room that was already there.",
+  "The fix is to make each label as wide as its bold self **before** it turns bold. A copy of the text, set in the bold weight, sits in `::after`. It is invisible and has no height, but it still counts toward the width, so the bold text grows into room that is already there. Screen readers skip it, and it can't be selected or copied.",
+  "It rarely shows up in just one place. Tabs, nav links, filters and segmented controls all tend to do it. Paste the prompt below into your coding assistant: it **finds every instance, lists them for you**, and fixes only the ones you approve.",
 ]
-
-const NOTES = [
-  "Keep `data-text` in step with the label: the copy reserves the width of whatever text it is given. `visibility: hidden` also keeps it out of the accessibility tree, so screen readers announce the tab once.",
-  "The other common fix stacks a regular and a bold copy in one grid cell and cross-fades them. It works with any font, but every label is in the page twice, and halfway through the fade you can see both. With a variable font like Manrope, **reserve the width and transition the weight**. It is less markup, and the weight moves smoothly instead of swapping.",
-]
-
-const SNIPPET = `<button class="tab" role="tab">
-  <span class="label" data-text="Often asked">Often asked</span>
-</button>
-
-.label {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* The bold width, reserved: invisible, no height. */
-.label::after {
-  content: attr(data-text);
-  font-weight: 700;
-  height: 0;
-  overflow: hidden;
-  visibility: hidden;
-}
-
-.tab {
-  font-weight: 500;
-  transition: font-weight 100ms ease-out;
-}
-
-.tab:active,
-.tab[aria-selected="true"] {
-  font-weight: 700;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tab {
-    transition: none;
-  }
-}`
 
 export function BolderOnPressShowcase() {
   return (
@@ -87,22 +49,25 @@ export function BolderOnPressShowcase() {
 
       <Card className="labs-enter labs-enter-delay-3">
         <CardHeader>
-          <CardTitle>The fix</CardTitle>
+          <CardTitle>Prompt</CardTitle>
           <CardDescription className="text-pretty">
-            One tab, markup and CSS.
+            For Claude Code, Cursor, Copilot or any coding assistant.
           </CardDescription>
           <CardAction>
-            <CopyButton text={SNIPPET} aria-label="Copy the code" />
+            <CopyButton
+              text={BOLDER_ON_PRESS_PROMPT}
+              aria-label="Copy the prompt"
+            />
           </CardAction>
         </CardHeader>
         <CardContent>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-5 font-mono text-xs leading-normal">
-            <code>{SNIPPET}</code>
+          {/* Wrapped, not scrolled sideways: it is prose with code in it,
+              and on a phone a horizontal scroller hides half of every line. */}
+          <pre className="-mx-2 rounded-lg bg-muted p-3.5 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap text-foreground/80 sm:mx-0 sm:p-5">
+            <code>{BOLDER_ON_PRESS_PROMPT}</code>
           </pre>
         </CardContent>
       </Card>
-
-      <Prose className="labs-enter labs-enter-delay-3" paragraphs={NOTES} />
     </>
   )
 }

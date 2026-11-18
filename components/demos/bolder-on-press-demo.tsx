@@ -25,9 +25,11 @@ const QUESTIONS = [
 ]
 
 /**
- * The tab pair from the studio homepage, with the label getting bolder on
- * press. Same type, size, colours, press and sliding underline as the real
- * one; the panels are trimmed down to an outline of what sits under each tab.
+ * The tab pair from the studio homepage, with the label getting bolder when
+ * pressed or selected and its bold width reserved. Same type, size, colours
+ * and sliding underline as the real one, minus the press scale, so the weight
+ * is the only thing that changes. The panels are trimmed down to an outline
+ * of what sits under each tab.
  */
 export function BolderOnPressDemo({
   className,

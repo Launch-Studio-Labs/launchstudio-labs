@@ -3,16 +3,17 @@ import { cn } from "@/lib/utils"
 /**
  * The trigger styles the studio's line tabs use, plus the weight change.
  *
- * Resting labels are 500. A pressed or active one is 700. `font-weight`
- * transitions because the face is variable: the browser moves along the
- * `wght` axis rather than swapping one file for another. The press itself is
- * the studio's: 0.97 scale over 100ms, ease-out.
+ * Resting labels are 500. A pressed or active one is 700, and that weight is
+ * the only thing that changes: no press scale, so any shift you see comes
+ * from the letters getting wider and nothing else. `font-weight` transitions
+ * because the face is variable: the browser moves along the `wght` axis
+ * rather than swapping one file for another.
  */
 export const bolderTriggerClassName = cn(
   "touch-manipulation font-medium select-none",
-  "data-active:font-bold active:font-bold",
-  "transition-[color,scale,font-weight] duration-100 ease-out",
-  "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100"
+  "active:font-bold data-active:font-bold",
+  "transition-[color,font-weight] duration-100 ease-out",
+  "motion-reduce:transition-none"
 )
 
 /**
@@ -33,7 +34,7 @@ export function BolderLabel({ children }: { children: string }) {
       data-text={children}
       className={cn(
         "inline-flex flex-col items-center",
-        "after:pointer-events-none after:invisible after:h-0 after:overflow-hidden after:font-bold after:select-none after:content-[attr(data-text)]"
+        "after:pointer-events-none after:invisible after:h-0 after:overflow-hidden after:font-bold after:content-[attr(data-text)] after:select-none"
       )}
     >
       {children}
