@@ -2,90 +2,132 @@
 
 import {
   useEffect,
+  useRef,
   useState,
   type ComponentProps,
   type PointerEvent,
 } from "react"
 
 import { DemoFrame } from "@/components/demos/demo-frame"
-import { Button } from "@/components/ui/button"
+import {
+  Tabs,
+  TabsContent,
+  TabsIndicator,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
-const LABEL = "Continue"
-
 /**
- * Long enough for the heavier face to read on a recording, short enough that
- * the idle label is what the loop spends most of its time on.
+ * The pair on the studio homepage, in the same order: work, then questions.
+ * The bar under them slides the same way it does there.
  */
-const REPLAY_HOLD_MS = 560
-const REPLAY_REST_MS = 1200
+const TABS = [
+  {
+    value: "work",
+    label: "Our Work",
+    panel: "Selected work, from the latest engagement back.",
+  },
+  {
+    value: "questions",
+    label: "Often asked",
+    panel: "The questions that come up before a project starts.",
+  },
+] as const
+
+type TabValue = (typeof TABS)[number]["value"]
+
+/** How long a replay holds a tab down, then how long the new tab sits. */
+const REPLAY_HOLD_MS = 520
+const REPLAY_REST_MS = 980
 
 /**
  * The heavier drawing is wider than the resting one. Both copies share one
- * grid cell, so the cell is born at the heavier width and the press never
- * reflows. `clip-path: inset(0)` then keeps that heavier ink from spilling
- * past the cell into the scrollable overflow.
+ * grid cell, so the cell is born at the heavier width and the tab never
+ * reflows — the underline, which is measured off the tab, stays put too.
  *
  * Weight is `font-weight`, which drives the `wght` axis on a variable font
- * (Geist here) and still resolves when a static face is what renders.
- * `font-variation-settings: "wght"` would set the same axis and then do
- * nothing on a fallback.
- *
- * The overlay eases in (opacity and a small scale) and the resting face eases
- * out, so a held press is one drawing. The resting weight never changes, and
- * the cell is already the heavier width, so the box does not reflow.
+ * and still resolves when a static face is what renders.
  */
 const overlayClassName = cn(
   "pointer-events-none col-start-1 row-start-1 [font-weight:650] [clip-path:inset(0)]",
   "scale-[0.98] opacity-0",
   "transition-[opacity,scale] duration-200 ease-out",
-  "group-active/button:scale-100 group-active/button:opacity-100",
-  "group-data-[pressed=true]/button:scale-100 group-data-[pressed=true]/button:opacity-100",
+  "group-active/press:scale-100 group-active/press:opacity-100",
+  "group-data-[pressed=true]/press:scale-100 group-data-[pressed=true]/press:opacity-100",
   "motion-reduce:transition-none"
 )
+
+function PressLabel({ children }: { children: string }) {
+  return (
+    <span className="inline-grid place-items-center whitespace-nowrap">
+      <span
+        className={cn(
+          "col-start-1 row-start-1",
+          "transition-opacity duration-200 ease-out",
+          "group-active/press:opacity-0 group-data-[pressed=true]/press:opacity-0",
+          "motion-reduce:transition-none"
+        )}
+      >
+        {children}
+      </span>
+      <span aria-hidden="true" className={overlayClassName}>
+        {children}
+      </span>
+    </span>
+  )
+}
 
 export function BolderOnPressDemo({
   className,
   ...props
 }: ComponentProps<"div">) {
+  const [tab, setTab] = useState<TabValue>("work")
   const [replay, setReplay] = useState(false)
-  const [simulated, setSimulated] = useState(false)
-  const [held, setHeld] = useState(false)
+  const [simulated, setSimulated] = useState<TabValue | null>(null)
+  const [held, setHeld] = useState<TabValue | null>(null)
+  const tabRef = useRef(tab)
+  useEffect(() => {
+    tabRef.current = tab
+  }, [tab])
 
   useEffect(() => {
     if (!replay) return
 
     let timeout = 0
-    const step = (pressed: boolean) => {
-      setSimulated(pressed)
-      timeout = window.setTimeout(
-        () => step(!pressed),
-        pressed ? REPLAY_HOLD_MS : REPLAY_REST_MS
-      )
+    let index = TABS.findIndex((item) => item.value === tabRef.current)
+    const step = () => {
+      index = (index + 1) % TABS.length
+      const next = TABS[index].value
+      setSimulated(next)
+      timeout = window.setTimeout(() => {
+        setSimulated(null)
+        setTab(next)
+        timeout = window.setTimeout(step, REPLAY_REST_MS)
+      }, REPLAY_HOLD_MS)
     }
 
-    // Open on the resting face, then press. A recording can start on idle.
-    timeout = window.setTimeout(() => step(true), REPLAY_REST_MS)
+    // Rest on whatever is showing, then press the next tab.
+    timeout = window.setTimeout(step, REPLAY_REST_MS)
     return () => window.clearTimeout(timeout)
   }, [replay])
 
-  const pressed = held || (replay && simulated)
+  const pressed = held ?? (replay ? simulated : null)
 
-  function hold(event: PointerEvent<HTMLButtonElement>) {
-    if (event.button !== 0) return
-    // Capture so a finger on glass keeps the heavier face up for the whole
-    // press. Safari drops :active inside a scrolling page as soon as the
-    // gesture might scroll; pointerup and pointercancel are what release it.
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setHeld(true)
+  function hold(value: TabValue) {
+    return (event: PointerEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) return
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setHeld(value)
+    }
   }
 
   function release(event: PointerEvent<HTMLButtonElement>) {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
-    setHeld(false)
+    setHeld(null)
   }
 
   return (
@@ -103,50 +145,47 @@ export function BolderOnPressDemo({
             checked={replay}
             onCheckedChange={(checked) => {
               setReplay(checked)
-              if (!checked) setSimulated(false)
+              if (!checked) setSimulated(null)
             }}
           />
           Replay
         </label>
       </div>
 
-      {/* The stage is the button. Padding gives a recording room to crop
-          to the label without catching the switch above. */}
-      <DemoFrame className="w-full px-6 py-16 sm:py-20">
-        <Button
-          static
-          variant="outline"
-          data-pressed={pressed ? "true" : undefined}
-          onPointerDown={hold}
-          onPointerUp={release}
-          onPointerCancel={release}
-          onKeyDown={(event) => {
-            if (event.key === " " || event.key === "Enter") setHeld(true)
+      <DemoFrame className="w-full items-stretch px-5 py-8 sm:px-6 sm:py-10">
+        <Tabs
+          value={tab}
+          onValueChange={(next) => {
+            if (next === "work" || next === "questions") setTab(next)
           }}
-          onKeyUp={(event) => {
-            if (event.key === " " || event.key === "Enter") setHeld(false)
-          }}
-          onBlur={() => setHeld(false)}
-          className="h-auto touch-manipulation rounded-full px-8 py-6 text-[2.25rem] leading-none font-normal tracking-tight sm:px-12 sm:py-7 sm:text-[2.75rem]"
+          className="w-full gap-6"
         >
-          <span className="inline-grid place-items-center whitespace-nowrap">
-            {/* The resting face leaves as the heavier one arrives, so a held
-                press is one drawing. The cell stays the heavier width. */}
-            <span
-              className={cn(
-                "col-start-1 row-start-1 font-normal",
-                "transition-opacity duration-200 ease-out",
-                "group-active/button:opacity-0 group-data-[pressed=true]/button:opacity-0",
-                "motion-reduce:transition-none"
-              )}
-            >
-              {LABEL}
-            </span>
-            <span aria-hidden="true" className={overlayClassName}>
-              {LABEL}
-            </span>
-          </span>
-        </Button>
+          <TabsList
+            variant="line"
+            className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0 pb-2"
+          >
+            {TABS.map((item) => (
+              <TabsTrigger
+                key={item.value}
+                value={item.value}
+                data-pressed={pressed === item.value ? "true" : undefined}
+                onPointerDown={hold(item.value)}
+                onPointerUp={release}
+                onPointerCancel={release}
+                className="group/press touch-manipulation font-medium select-none active:scale-[0.97] data-[pressed=true]:scale-[0.97] motion-reduce:active:scale-100 motion-reduce:data-[pressed=true]:scale-100"
+              >
+                <PressLabel>{item.label}</PressLabel>
+              </TabsTrigger>
+            ))}
+            <TabsIndicator />
+          </TabsList>
+
+          {TABS.map((item) => (
+            <TabsContent key={item.value} value={item.value}>
+              <p className="text-sm text-body">{item.panel}</p>
+            </TabsContent>
+          ))}
+        </Tabs>
       </DemoFrame>
     </div>
   )

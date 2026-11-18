@@ -6,7 +6,7 @@ import { BolderOnPressShowcase } from "@/components/bolder-on-press-showcase"
 export const metadata: Metadata = {
   title: docsTitle("/bolder-on-press"),
   description:
-    "A press that makes the label look heavier, with the resting face held fixed so the control never reflows.",
+    "The homepage tabs, with a press that thickens the label and never reflows the bar underneath.",
 }
 
 export default function Page() {

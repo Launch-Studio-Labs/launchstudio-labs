@@ -22,18 +22,21 @@ import { cn } from "@/lib/utils"
  * this same stack: a fixed resting label, a heavier copy clipped to the cell,
  * and a press that only eases opacity and scale.
  */
-const SNIPPET = `<button type="button" class="press" data-pressed="false">
-  <span class="press-label">
-    <span>Continue</span>
-    <span class="press-face" aria-hidden="true">Continue</span>
-  </span>
-</button>
-
-.press {
-  font-weight: 400;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
+const SNIPPET = `<div class="tabs" role="tablist">
+  <button type="button" role="tab" class="press">
+    <span class="press-label">
+      <span>Our Work</span>
+      <span class="press-face" aria-hidden="true">Our Work</span>
+    </span>
+  </button>
+  <button type="button" role="tab" class="press">
+    <span class="press-label">
+      <span>Often asked</span>
+      <span class="press-face" aria-hidden="true">Often asked</span>
+    </span>
+  </button>
+  <span class="tabs-indicator" aria-hidden="true"></span>
+</div>
 
 .press-label {
   display: inline-grid;
@@ -49,8 +52,8 @@ const SNIPPET = `<button type="button" class="press" data-pressed="false">
   transition: opacity 200ms ease-out;
 }
 
-/* The heavier copy is already in the cell, so the press changes ink
-   and not width. The resting face eases out, leaving one drawing. */
+/* Heavier copy, already in the cell, so the press changes ink and
+   not the tab's width. The underline is measured off that width. */
 .press-face {
   font-weight: 650;
   clip-path: inset(0);
@@ -71,9 +74,23 @@ const SNIPPET = `<button type="button" class="press" data-pressed="false">
   scale: 1;
 }
 
+/* One bar for the list. It slides; it does not cross-fade. */
+.tabs-indicator {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: var(--active-tab-width);
+  translate: var(--active-tab-left) 0;
+  background: currentColor;
+  transition: translate 250ms cubic-bezier(0.32, 0.72, 0, 1),
+    width 250ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .press-label > span:first-child,
-  .press-face {
+  .press-face,
+  .tabs-indicator {
     transition: none;
   }
 }`
@@ -148,17 +165,16 @@ export function BolderOnPressShowcase() {
           sets the same axis only when the face actually has one.
         </p>
         <p>
-          Geist, the face this site is set in, carries{" "}
-          <code className="font-mono text-xs">wght</code> from 100 to 900, so
-          650 is a real intermediate weight.{" "}
-          <strong className="font-medium text-foreground">:active</strong> is
-          the press: a click, a key held on the button, and a finger on the
-          glass. Inside a scrolling page Safari can release that highlight as
-          soon as the gesture might scroll.{" "}
-          <code className="font-mono text-xs">touch-action: manipulation</code>{" "}
-          keeps the tap immediate, and the demo mirrors{" "}
-          <code className="font-mono text-xs">:active</code> with pointer events
-          so the heavier face stays up for the whole press.
+          The example is the homepage pair,{" "}
+          <strong className="font-medium text-foreground">Our Work</strong> and{" "}
+          <strong className="font-medium text-foreground">Often asked</strong>.
+          Holding a tab thickens its label. Releasing it makes that tab the
+          active one, and the bar underneath slides across in 250ms. Geist
+          carries <code className="font-mono text-xs">wght</code> from 100 to
+          900, so 650 is a real intermediate weight. Inside a scrolling page
+          Safari can drop <code className="font-mono text-xs">:active</code> as
+          soon as the gesture might scroll, so the demo also mirrors the press
+          with pointer events.
         </p>
       </div>
 
@@ -170,8 +186,7 @@ export function BolderOnPressShowcase() {
         <CardHeader>
           <CardTitle>The treatment</CardTitle>
           <CardDescription className="text-pretty">
-            The base label is fixed. The heavier face is the only thing that
-            moves.
+            The label is the treatment. The bar underneath belongs to the tabs.
           </CardDescription>
           <CardAction>
             <Button

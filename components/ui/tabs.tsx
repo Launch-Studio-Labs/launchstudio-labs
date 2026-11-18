@@ -29,7 +29,9 @@ const tabsListVariants = cva(
     variants: {
       variant: {
         default: "bg-muted",
-        line: "gap-1 bg-transparent",
+        // The border is the rail the indicator slides on. Height goes auto so
+        // the bottom padding can open space between the labels and that rail.
+        line: "relative gap-1 border-b border-border bg-transparent group-data-horizontal/tabs:h-auto group-data-horizontal/tabs:pb-2",
       },
     },
     defaultVariants: {
@@ -62,6 +64,36 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
         "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+        // The line variant draws one sliding bar for the list, not a bar on
+        // each tab. Labels sit at their own width so that bar matches the word.
+        "group-data-[variant=line]/tabs-list:flex-none group-data-[variant=line]/tabs-list:rounded-none group-data-[variant=line]/tabs-list:px-1.5 group-data-[variant=line]/tabs-list:py-0.5 group-data-[variant=line]/tabs-list:after:hidden",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+/**
+ * The line variant's underline: one bar for the list, sliding to the active
+ * tab. Base UI measures that tab and publishes `--active-tab-left` and
+ * `--active-tab-width`. The bar stays hidden until the measurement lands, so
+ * its first appearance is a cut to the right place rather than a slide in
+ * from the edge.
+ *
+ * The curve and duration are the studio's panel transition, so the bar and
+ * the thing it belongs to read as one gesture.
+ */
+function TabsIndicator({ className, ...props }: TabsPrimitive.Indicator.Props) {
+  return (
+    <TabsPrimitive.Indicator
+      data-slot="tabs-indicator"
+      renderBeforeHydration
+      className={cn(
+        "pointer-events-none absolute -bottom-px left-0 h-0.5 w-(--active-tab-width) bg-foreground",
+        "[translate:var(--active-tab-left)_0]",
+        "transition-[translate,width] duration-[250ms] ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "motion-reduce:transition-none",
         className
       )}
       {...props}
@@ -79,4 +111,11 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   )
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+export {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsIndicator,
+  TabsContent,
+  tabsListVariants,
+}
