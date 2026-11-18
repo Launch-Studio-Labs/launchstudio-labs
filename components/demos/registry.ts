@@ -3,6 +3,7 @@ import type { ComponentType } from "react"
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
+import { WeightCompareDemo } from "@/components/demos/weight-compare-demo"
 
 export type Demo = {
   /** Also the playground's URL segment: /playground/<id>. */
@@ -32,6 +33,11 @@ export const demos: Demo[] = [
     id: "body-copy-card",
     title: "Body copy card",
     component: BodyCopyDemo,
+  },
+  {
+    id: "weight-without-shift",
+    title: "Weight without shift",
+    component: WeightCompareDemo,
   },
 ]
 
