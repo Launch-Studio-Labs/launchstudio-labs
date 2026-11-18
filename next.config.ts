@@ -24,6 +24,12 @@ const movedRoutes = [
 ] as const
 
 const nextConfig: NextConfig = {
+  env: {
+    // Always defined, so the bundler inlines it. Left unset, it would stay a
+    // runtime lookup and production would still ship Interface Kit's chunk
+    // (unused, but there). See components/interface-kit-gate.tsx.
+    NEXT_PUBLIC_INTERFACE_KIT: process.env.NEXT_PUBLIC_INTERFACE_KIT ?? "",
+  },
   // The dev preview reaches this server over Tailscale, not localhost.
   allowedDevOrigins: ["*.tail3d6805.ts.net", "127.0.0.1"],
   ...(staticExport

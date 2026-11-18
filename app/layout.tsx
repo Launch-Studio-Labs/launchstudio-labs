@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono, Lora } from "next/font/google"
 
 import "./globals.css"
+import { InterfaceKitGate } from "@/components/interface-kit-gate"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
@@ -54,6 +55,8 @@ export default function RootLayout({
         <ThemeProvider forcedTheme="light" enableSystem={false}>
           {children}
         </ThemeProvider>
+        {/* Off unless NEXT_PUBLIC_INTERFACE_KIT=1: dev and PR previews only. */}
+        <InterfaceKitGate />
       </body>
     </html>
   )
