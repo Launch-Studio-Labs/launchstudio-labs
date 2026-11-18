@@ -47,7 +47,13 @@ export function PlaygroundSidebar({
                     <SidebarMenuButton
                       isActive={isActive}
                       className="h-8 rounded-none px-2 hover:bg-transparent active:bg-transparent data-active:bg-transparent"
-                      render={<Link href={href} />}
+                      render={
+                        <Link
+                          href={href}
+                          data-cuelume-navigate=""
+                          data-cuelume-emphasis="subtle"
+                        />
+                      }
                     >
                       <span
                         className={cn(

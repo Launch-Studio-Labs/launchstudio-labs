@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Lora } from "next/font/google"
 import "./globals.css"
 import { InterfaceKitGate } from "@/components/interface-kit-gate"
 import { ThemeProvider } from "@/components/theme-provider"
+import { UiSounds } from "@/components/ui-sounds"
 import { cn } from "@/lib/utils"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans-family" })
@@ -57,6 +58,8 @@ export default function RootLayout({
         </ThemeProvider>
         {/* Off unless NEXT_PUBLIC_INTERFACE_KIT=1: dev and PR previews only. */}
         <InterfaceKitGate />
+        {/* Interface sounds. Silent until a visitor interacts; see lib/sounds.ts. */}
+        <UiSounds />
       </body>
     </html>
   )

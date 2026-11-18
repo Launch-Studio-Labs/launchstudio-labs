@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ComponentProps } from "react"
 import { CheckIcon, CopyIcon } from "@phosphor-icons/react"
 
 import { Button } from "@/components/ui/button"
+import { cue } from "@/lib/sounds"
 import { cn } from "@/lib/utils"
 
 /** How long "Copied" stays up before going back to "Copy". */
@@ -26,6 +27,8 @@ export function useCopy(text: string) {
     } catch {
       return false
     }
+    // Cuelume: copy to clipboard is `success`, subtle, and only once it landed.
+    cue("success", { emphasis: "subtle" })
     setCopied(true)
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => setCopied(false), COPIED_MS)

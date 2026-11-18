@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
     // (unused, but there). See components/interface-kit-gate.tsx.
     NEXT_PUBLIC_INTERFACE_KIT: process.env.NEXT_PUBLIC_INTERFACE_KIT ?? "",
   },
+  // Dev only: keep Next's badge off the sidebar's Sound toggle (bottom left).
+  // Interface Kit's paintbrush is top right, so bottom right is free.
+  devIndicators: { position: "bottom-right" },
   // The dev preview reaches this server over Tailscale, not localhost.
   allowedDevOrigins: ["*.tail3d6805.ts.net", "127.0.0.1"],
   ...(staticExport

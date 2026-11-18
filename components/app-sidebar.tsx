@@ -5,10 +5,12 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { docsPages } from "@/app/(docs)/pages"
+import { SoundToggle } from "@/components/sound-toggle"
 import { cn } from "@/lib/utils"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -50,7 +52,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="group-data-[side=left]:border-r-0 group-data-[side=right]:border-l-0">
       <SidebarHeader className="h-20 p-0 pt-8 pl-6">
-        <Link href="/">
+        <Link href="/" data-cuelume-navigate="" data-cuelume-emphasis="subtle">
           <Image
             src="/launch-studio-logo.svg"
             alt="Launch Studio"
@@ -84,7 +86,13 @@ export function AppSidebar() {
                         /* Pages hang under their section label: 8px further
                            in than the label's own text. */
                         className="h-8 rounded-none pr-2 pl-4 hover:bg-transparent active:bg-transparent data-active:bg-transparent"
-                        render={<Link href={item.href} />}
+                        render={
+                          <Link
+                            href={item.href}
+                            data-cuelume-navigate=""
+                            data-cuelume-emphasis="subtle"
+                          />
+                        }
                       >
                         <span
                           className={cn(
@@ -103,6 +111,10 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+
+      <SidebarFooter className="px-6 pb-8">
+        <SoundToggle />
+      </SidebarFooter>
     </Sidebar>
   )
 }

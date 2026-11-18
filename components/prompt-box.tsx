@@ -84,6 +84,11 @@ export function PromptBox({
               type="button"
               aria-expanded={open}
               aria-controls={regionId}
+              // Cuelume: an accordion is open / close, subtle.
+              {...(open
+                ? { "data-cuelume-close": "" }
+                : { "data-cuelume-open": "" })}
+              data-cuelume-emphasis="subtle"
               onClick={() => setOpen((value) => !value)}
               className="inline-flex items-center gap-1.5 rounded-sm text-xs text-muted-foreground transition-colors duration-150 ease-out outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
             >

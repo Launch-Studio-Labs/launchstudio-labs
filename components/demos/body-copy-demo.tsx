@@ -85,7 +85,7 @@ function PracticeCard({
         </CardDescription>
       </CardHeader>
       <CardFooter>
-        <Button>{CARD_COPY.cta}</Button>
+        <Button data-cuelume-tap="">{CARD_COPY.cta}</Button>
       </CardFooter>
     </Card>
   )
