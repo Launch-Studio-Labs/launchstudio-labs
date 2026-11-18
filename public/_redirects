@@ -4,4 +4,5 @@
 # "Bolder on press" became "Weight without shift". Mirrors movedRoutes in next.config.ts.
 /bolder-on-press /weight-without-shift 301
 /playground/bolder-on-press /playground/weight-without-shift 301
-/playground/bolder-on-press-compare /playground/weight-without-shift-compare 301
+/playground/bolder-on-press-compare /playground/weight-without-shift 301
+/playground/weight-without-shift-compare /playground/weight-without-shift 301

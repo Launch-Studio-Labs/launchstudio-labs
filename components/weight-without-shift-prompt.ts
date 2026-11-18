@@ -1,7 +1,6 @@
 /**
  * The prompt the "Weight without shift" page hands to a coding assistant.
- * One source for every prompt box, so whichever one copies, the text is the
- * same.
+ * Kept in its own file so the page shows and copies exactly the same text.
  */
 export const WEIGHT_WITHOUT_SHIFT_PROMPT = `Find every place in this codebase where a font-weight change makes an element change size or shifts the layout. List them, wait for my approval, then fix only the ones I approve.
 
@@ -72,18 +71,3 @@ Reply "fix all", or pick numbers, e.g. "fix 1 and 3".
 Me: fix 1 and 3
 
 You: Add the reserved copy to NavLink (600) and FilterChip (600), leave tabs.tsx as it is, check both stay the same width in every state, then summarise the two changes.`
-
-/**
- * The prompt cut at its headings: the opening paragraph, then one section per
- * `## ` heading. Used by the outline box, which shows the steps one at a time.
- */
-export function promptSections(prompt: string) {
-  const [intro, ...rest] = prompt.split(/\n\n(?=## )/)
-  return {
-    intro,
-    sections: rest.map((block) => {
-      const [heading, ...body] = block.split("\n")
-      return { title: heading.replace(/^## /, ""), body: body.join("\n") }
-    }),
-  }
-}

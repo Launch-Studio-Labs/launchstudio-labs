@@ -4,7 +4,6 @@ import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
 import { WeightCompareDemo } from "@/components/demos/weight-compare-demo"
-import { WeightFiltersDemo } from "@/components/demos/weight-filters-demo"
 
 export type Demo = {
   /** Also the playground's URL segment: /playground/<id>. */
@@ -37,12 +36,7 @@ export const demos: Demo[] = [
   },
   {
     id: "weight-without-shift",
-    title: "Weight filters",
-    component: WeightFiltersDemo,
-  },
-  {
-    id: "weight-without-shift-compare",
-    title: "Weight vs reserved",
+    title: "Weight without shift",
     component: WeightCompareDemo,
   },
 ]

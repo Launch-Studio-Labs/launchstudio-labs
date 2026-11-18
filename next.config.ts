@@ -15,9 +15,11 @@ const staticExport = process.env.NEXT_STATIC_EXPORT === "1"
 const movedRoutes = [
   ["/bolder-on-press", "/weight-without-shift"],
   ["/playground/bolder-on-press", "/playground/weight-without-shift"],
+  ["/playground/bolder-on-press-compare", "/playground/weight-without-shift"],
+  // The page has one demo now, so its playground is the bare slug.
   [
-    "/playground/bolder-on-press-compare",
     "/playground/weight-without-shift-compare",
+    "/playground/weight-without-shift",
   ],
 ] as const
 
