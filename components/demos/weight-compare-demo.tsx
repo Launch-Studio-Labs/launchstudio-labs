@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react"
 
 import {
-  BolderLabel,
-  bolderTriggerClassName,
-} from "@/components/demos/bolder-label"
+  ReservedWeight,
+  weightTabClassName,
+} from "@/components/demos/reserved-weight"
 import { DemoFrame } from "@/components/demos/demo-frame"
 import { studioFont } from "@/components/demos/studio-font"
 import { Switch } from "@/components/ui/switch"
@@ -62,14 +62,14 @@ function MeasuredTrigger({
       ref={ref}
       value={value}
       className={cn(
-        bolderTriggerClassName,
+        weightTabClassName,
         // The tab's own box, drawn while measuring. An outline takes no
         // space, so drawing it cannot change what it measures.
         "outline-offset-0",
         measure && "outline-1 outline-foreground/20 outline-dashed"
       )}
     >
-      {reserved ? <BolderLabel>{label}</BolderLabel> : label}
+      {reserved ? <ReservedWeight>{label}</ReservedWeight> : label}
       <span
         aria-hidden
         className={cn(
@@ -132,7 +132,7 @@ function Row({
  * changes `font-weight`; the bottom row also reserves the bold width. Switch
  * tabs and watch the second label, the underline and the widths.
  */
-export function BolderCompareDemo({
+export function WeightCompareDemo({
   className,
   ...props
 }: ComponentProps<"div">) {

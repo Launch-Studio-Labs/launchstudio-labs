@@ -6,8 +6,34 @@ import { CheckIcon, CopyIcon } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/** How long "Copied" stays up before the button goes back to "Copy". */
+/** How long "Copied" stays up before going back to "Copy". */
 const COPIED_MS = 1600
+
+/**
+ * Copies `text` and reports it for a moment. `copied` only turns on once the
+ * clipboard write has actually succeeded; another copy restarts the timer
+ * rather than stacking a second one, and the timer is cleared on unmount.
+ */
+export function useCopy(text: string) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      return false
+    }
+    setCopied(true)
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setCopied(false), COPIED_MS)
+    return true
+  }
+
+  return { copied, copy }
+}
 
 function SwapIcon({
   shown,
@@ -31,43 +57,38 @@ function SwapIcon({
 }
 
 /**
- * Copies `text` and says so for a moment. The two icons share one box and
- * trade places, so the button never changes width when its label does.
- *
- * "Copied" only shows once the clipboard write has actually succeeded. A
- * second click restarts the timer rather than stacking another one, and the
- * timer is cleared on unmount.
+ * The copy icon, trading places with a check once copied. Both icons share
+ * one box, so whatever holds this never changes width.
  */
+export function CopyStateIcon({
+  copied,
+  className,
+}: {
+  copied: boolean
+  className?: string
+}) {
+  return (
+    <span className={cn("relative size-4 shrink-0", className)}>
+      <SwapIcon shown={!copied}>
+        <CopyIcon className="size-full" />
+      </SwapIcon>
+      <SwapIcon shown={copied}>
+        <CheckIcon className="size-full" />
+      </SwapIcon>
+    </span>
+  )
+}
+
+/** A full button that copies `text`. */
 export function CopyButton({
   text,
   ...props
 }: { text: string } & Omit<ComponentProps<typeof Button>, "onClick">) {
-  const [copied, setCopied] = useState(false)
-  const timer = useRef<number | undefined>(undefined)
-
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      return
-    }
-    setCopied(true)
-    window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setCopied(false), COPIED_MS)
-  }
+  const { copied, copy } = useCopy(text)
 
   return (
     <Button size="lg" onClick={copy} {...props}>
-      <span className="relative size-4 shrink-0">
-        <SwapIcon shown={!copied}>
-          <CopyIcon className="size-4" />
-        </SwapIcon>
-        <SwapIcon shown={copied}>
-          <CheckIcon className="size-4" />
-        </SwapIcon>
-      </span>
+      <CopyStateIcon copied={copied} />
       <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
     </Button>
   )

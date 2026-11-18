@@ -1,10 +1,10 @@
 import type { ComponentType } from "react"
 
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
-import { BolderCompareDemo } from "@/components/demos/bolder-compare-demo"
-import { BolderOnPressDemo } from "@/components/demos/bolder-on-press-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
+import { WeightCompareDemo } from "@/components/demos/weight-compare-demo"
+import { WeightFiltersDemo } from "@/components/demos/weight-filters-demo"
 
 export type Demo = {
   /** Also the playground's URL segment: /playground/<id>. */
@@ -36,14 +36,14 @@ export const demos: Demo[] = [
     component: BodyCopyDemo,
   },
   {
-    id: "bolder-on-press",
-    title: "Bolder on press",
-    component: BolderOnPressDemo,
+    id: "weight-without-shift",
+    title: "Weight filters",
+    component: WeightFiltersDemo,
   },
   {
-    id: "bolder-on-press-compare",
+    id: "weight-without-shift-compare",
     title: "Weight vs reserved",
-    component: BolderCompareDemo,
+    component: WeightCompareDemo,
   },
 ]
 
