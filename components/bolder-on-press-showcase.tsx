@@ -1,11 +1,8 @@
-"use client"
-
-import { useState } from "react"
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react"
-
+import { CopyButton } from "@/components/copy-button"
+import { BolderCompareDemo } from "@/components/demos/bolder-compare-demo"
 import { BolderOnPressDemo } from "@/components/demos/bolder-on-press-demo"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
+import { Prose } from "@/components/prose"
 import {
   Card,
   CardAction,
@@ -15,188 +12,87 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
 
-/**
- * The treatment, in the form you paste into a stylesheet. The demo above is
- * this same stack: a fixed resting label, a heavier copy clipped to the cell,
- * and a press that only eases opacity and scale.
- */
-const SNIPPET = `<div class="tabs" role="tablist">
-  <button type="button" role="tab" class="press">
-    <span class="press-label">
-      <span>Our Work</span>
-      <span class="press-face" aria-hidden="true">Our Work</span>
-    </span>
-  </button>
-  <button type="button" role="tab" class="press">
-    <span class="press-label">
-      <span>Often asked</span>
-      <span class="press-face" aria-hidden="true">Often asked</span>
-    </span>
-  </button>
-  <span class="tabs-indicator" aria-hidden="true"></span>
-</div>
+const INTRO = [
+  "A tab that gets **bolder when you press it** confirms the press before anything else has changed. The catch is that heavier letters are wider. Change only `font-weight` and the label grows, the tab next to it shifts, and the underline jumps to a new width.",
+  "Here it is on the tabs from the Launch Studio homepage. Press and hold one: the label thickens at once, and nothing around it moves.",
+]
 
-.press-label {
-  display: inline-grid;
-  place-items: center;
-  white-space: nowrap;
+const PROBLEM = [
+  "Both rows below are the same pair of tabs. The top row changes only the weight. The bottom row **reserves the bold width** up front. Switch tabs and watch the widths: on top, the active tab grows by 4 to 5px and pushes Often asked along with it. Underneath, nothing moves.",
+]
+
+const FIX = [
+  "Make the label as wide as its bold self **before** it turns bold. A copy of the text, set in the bold weight, goes in `::after`. It is invisible and has no height, but it still counts toward the width. When the real text thickens, it grows into room that was already there.",
+]
+
+const NOTES = [
+  "Keep `data-text` in step with the label: the copy reserves the width of whatever text it is given. `visibility: hidden` also keeps it out of the accessibility tree, so screen readers announce the tab once.",
+  "The other common fix stacks a regular and a bold copy in one grid cell and cross-fades them. It works with any font, but every label is in the page twice, and halfway through the fade you can see both. With a variable font like Manrope, **reserve the width and transition the weight**. It is less markup, and the weight moves smoothly instead of swapping.",
+]
+
+const SNIPPET = `<button class="tab" role="tab">
+  <span class="label" data-text="Often asked">Often asked</span>
+</button>
+
+.label {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.press-label > span {
-  grid-area: 1 / 1;
+/* The bold width, reserved: invisible, no height. */
+.label::after {
+  content: attr(data-text);
+  font-weight: 700;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
 }
 
-.press-label > span:first-child {
-  transition: opacity 200ms ease-out;
+.tab {
+  font-weight: 500;
+  transition: font-weight 100ms ease-out;
 }
 
-/* Heavier copy, already in the cell, so the press changes ink and
-   not the tab's width. The underline is measured off that width. */
-.press-face {
-  font-weight: 650;
-  clip-path: inset(0);
-  opacity: 0;
-  scale: 0.98;
-  pointer-events: none;
-  transition-property: opacity, scale;
-  transition-duration: 200ms;
-  transition-timing-function: ease-out;
-}
-
-.press:is(:active, [data-pressed="true"]) .press-label > span:first-child {
-  opacity: 0;
-}
-
-.press:is(:active, [data-pressed="true"]) .press-face {
-  opacity: 1;
-  scale: 1;
-}
-
-/* One bar for the list. It slides; it does not cross-fade. */
-.tabs-indicator {
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  height: 2px;
-  width: var(--active-tab-width);
-  translate: var(--active-tab-left) 0;
-  background: currentColor;
-  transition: translate 250ms cubic-bezier(0.32, 0.72, 0, 1),
-    width 250ms cubic-bezier(0.32, 0.72, 0, 1);
+.tab:active,
+.tab[aria-selected="true"] {
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .press-label > span:first-child,
-  .press-face,
-  .tabs-indicator {
+  .tab {
     transition: none;
   }
 }`
 
-function CopyButtonIcon({ copied }: { copied: boolean }) {
-  return (
-    <span className="relative size-4 shrink-0">
-      <span
-        className={cn(
-          "absolute inset-0 flex items-center justify-center transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-          copied
-            ? "scale-[0.25] opacity-0 blur-[4px]"
-            : "blur-0 scale-100 opacity-100"
-        )}
-      >
-        <CopyIcon className="size-4" />
-      </span>
-      <span
-        className={cn(
-          "absolute inset-0 flex items-center justify-center transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-          copied
-            ? "blur-0 scale-100 opacity-100"
-            : "scale-[0.25] opacity-0 blur-[4px]"
-        )}
-      >
-        <CheckIcon className="size-4" />
-      </span>
-    </span>
-  )
-}
-
 export function BolderOnPressShowcase() {
-  const [copied, setCopied] = useState(false)
-
-  function copySnippet() {
-    void navigator.clipboard.writeText(SNIPPET)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1600)
-  }
-
   return (
     <>
       <PageHeader href="/bolder-on-press" />
 
-      <div className="labs-enter labs-enter-delay-2 flex flex-col gap-[1lh] text-sm leading-normal text-body">
-        <p>
-          A label that thickens while it is held feels like the press landed.
-          Animating the label&apos;s own{" "}
-          <strong className="font-medium text-foreground">font-weight</strong>{" "}
-          widens the glyphs, so the control reflows under the pointer. On a
-          static font the weight also jumps between the files that were loaded.
-        </p>
-        <p>
-          The resting label keeps its weight and holds the layout. A second copy
-          of the same words sits in the same grid cell, drawn at{" "}
-          <strong className="font-medium text-foreground">650</strong>, and{" "}
-          <strong className="font-medium text-foreground">
-            clip-path: inset(0)
-          </strong>{" "}
-          keeps that heavier ink inside the cell. While the control is pressed,
-          the copy eases in with opacity and a small scale, and the resting face
-          eases out, so the held word is one drawing.{" "}
-          <strong className="font-medium text-foreground">
-            font-weight: 650
-          </strong>{" "}
-          is what sets the axis: on a variable font it maps to{" "}
-          <code className="font-mono text-xs">wght</code>, and on a static face
-          it still resolves to a real weight.{" "}
-          <code className="font-mono text-xs">
-            font-variation-settings: &quot;wght&quot; 650
-          </code>{" "}
-          sets the same axis only when the face actually has one.
-        </p>
-        <p>
-          The example is the homepage pair,{" "}
-          <strong className="font-medium text-foreground">Our Work</strong> and{" "}
-          <strong className="font-medium text-foreground">Often asked</strong>.
-          Holding a tab thickens its label. Releasing it makes that tab the
-          active one, and the bar underneath slides across in 250ms. Geist
-          carries <code className="font-mono text-xs">wght</code> from 100 to
-          900, so 650 is a real intermediate weight. Inside a scrolling page
-          Safari can drop <code className="font-mono text-xs">:active</code> as
-          soon as the gesture might scroll, so the demo also mirrors the press
-          with pointer events.
-        </p>
-      </div>
+      <Prose className="labs-enter labs-enter-delay-2" paragraphs={INTRO} />
 
       <BolderOnPressDemo className="labs-enter labs-enter-delay-3" />
 
       <Separator className="labs-enter labs-enter-delay-3" />
 
+      <Prose className="labs-enter labs-enter-delay-3" paragraphs={PROBLEM} />
+
+      <BolderCompareDemo className="labs-enter labs-enter-delay-3" />
+
+      <Separator className="labs-enter labs-enter-delay-3" />
+
+      <Prose className="labs-enter labs-enter-delay-3" paragraphs={FIX} />
+
       <Card className="labs-enter labs-enter-delay-3">
         <CardHeader>
-          <CardTitle>The treatment</CardTitle>
+          <CardTitle>The fix</CardTitle>
           <CardDescription className="text-pretty">
-            The label is the treatment. The bar underneath belongs to the tabs.
+            One tab, markup and CSS.
           </CardDescription>
           <CardAction>
-            <Button
-              aria-label="Copy the treatment"
-              size="lg"
-              onClick={copySnippet}
-            >
-              <CopyButtonIcon copied={copied} />
-              {copied ? "Copied" : "Copy"}
-            </Button>
+            <CopyButton text={SNIPPET} aria-label="Copy the code" />
           </CardAction>
         </CardHeader>
         <CardContent>
@@ -205,6 +101,8 @@ export function BolderOnPressShowcase() {
           </pre>
         </CardContent>
       </Card>
+
+      <Prose className="labs-enter labs-enter-delay-3" paragraphs={NOTES} />
     </>
   )
 }

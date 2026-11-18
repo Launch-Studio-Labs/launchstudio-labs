@@ -6,7 +6,7 @@ import { BolderOnPressShowcase } from "@/components/bolder-on-press-showcase"
 export const metadata: Metadata = {
   title: docsTitle("/bolder-on-press"),
   description:
-    "The homepage tabs, with a press that thickens the label and never reflows the bar underneath.",
+    "Make a tab label bolder when it is pressed or active, without the tabs or the underline moving.",
 }
 
 export default function Page() {
