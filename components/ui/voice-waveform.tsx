@@ -65,6 +65,12 @@ export interface LiveWaveformProps extends ComponentProps<"div"> {
    */
   processing?: boolean
   waveform?: LiveWaveformStyle
+  /**
+   * Paint with these instead of `currentColor`: a palette in Voice Glow's
+   * order (centre first, then pairs outward), laid across the lane as a
+   * horizontal gradient, centre in the middle.
+   */
+  colors?: readonly string[]
 }
 
 /**
@@ -77,6 +83,7 @@ export function LiveWaveform({
   frozen = false,
   processing = false,
   waveform = "bars",
+  colors,
   className,
   ...props
 }: LiveWaveformProps) {
@@ -127,8 +134,11 @@ export function LiveWaveform({
       if (frozenRef.current && frame > 1) return
 
       context.clearRect(0, 0, width, height)
-      context.fillStyle = color
-      context.strokeStyle = color
+      const paint = colors?.length
+        ? paletteGradient(context, width, colors)
+        : color
+      context.fillStyle = paint
+      context.strokeStyle = paint
       const mid = height / 2
       const t = now / 1000
       work += ((processingRef.current ? 1 : 0) - work) * 0.08
@@ -240,7 +250,7 @@ export function LiveWaveform({
       cancelAnimationFrame(raf)
       observer.disconnect()
     }
-  }, [analyser, getLevel, waveform])
+  }, [analyser, getLevel, waveform, colors])
 
   return (
     <div
@@ -252,6 +262,27 @@ export function LiveWaveform({
       <canvas ref={canvasRef} className="absolute inset-0 size-full" />
     </div>
   )
+}
+
+/**
+ * A palette (centre first, then left/right pairs outward) as a gradient
+ * across the lane: the outermost pair at the edges, the centre colour in the
+ * middle — the same arrangement as Voice Glow's lobes.
+ */
+function paletteGradient(
+  context: CanvasRenderingContext2D,
+  width: number,
+  colors: readonly string[]
+) {
+  const gradient = context.createLinearGradient(0, 0, Math.max(1, width), 0)
+  const pairs = Math.floor((colors.length - 1) / 2)
+  gradient.addColorStop(0.5, colors[0])
+  for (let k = 1; k <= pairs; k++) {
+    const offset = (0.5 * k) / pairs
+    gradient.addColorStop(0.5 - offset, colors[2 * k - 1])
+    gradient.addColorStop(0.5 + offset, colors[2 * k])
+  }
+  return gradient
 }
 
 function peakAbs(samples: Float32Array) {

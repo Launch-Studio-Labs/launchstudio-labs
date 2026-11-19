@@ -63,17 +63,13 @@ const SAMPLE_TRANSCRIPTS = {
   ],
 }
 
-type LogEntry = { id: number; text: string; tone?: "withheld" | "deleted" }
-
 /**
  * Two fields from a form — a short answer and a long one — each with Voice
  * Input's mic in the corner, exactly as the component ships. The dials under
  * them change the look, never the composition: at their defaults the fields
  * are the component's defaults.
  *
- * Transcription is a stand-in, so it works without an API key. The log shows
- * what the app was handed — audio or not — and when stored audio was deleted,
- * which is what the line inside the field controls.
+ * Transcription is a stand-in, so it works without an API key.
  */
 export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
   const [submit, setSubmit] = useState<VoiceSubmitMode>("auto")
@@ -85,35 +81,15 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
 
   const [sendRecording, setSendRecording] = useState(true)
   const [active, setActive] = useState<string | null>(null)
-  const [log, setLog] = useState<LogEntry[]>([])
-
-  function note(text: string, tone?: LogEntry["tone"]) {
-    setLog((current) =>
-      [{ id: (current[0]?.id ?? 0) + 1, text, tone }, ...current].slice(0, 4)
-    )
-  }
 
   const transcriber =
     (kind: keyof typeof SAMPLE_TRANSCRIPTS): VoiceTranscribe =>
     async (take, { sendRecording, signal }) => {
-      const kb = Math.max(1, Math.round(take.blob.size / 1024))
-      const seconds = (take.durationMs / 1000).toFixed(1)
-      note(
-        sendRecording
-          ? `POST /api/voice · ${seconds}s · ${kb} KB audio, kept`
-          : `POST /api/voice · ${seconds}s · ${kb} KB audio, transcribe and discard`,
-        sendRecording ? undefined : "withheld"
-      )
       await wait(1400, signal)
       const index = take.durationMs < 4000 ? 0 : take.durationMs < 12000 ? 1 : 2
       const audioId = sendRecording
         ? `rec_${Math.random().toString(36).slice(2, 8)}`
         : null
-      note(
-        audioId
-          ? `← 200 transcript · stored as ${audioId}`
-          : "← 200 transcript · audio not stored"
-      )
       return { transcript: SAMPLE_TRANSCRIPTS[kind][index], audioId }
     }
 
@@ -129,9 +105,6 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
   /** Props both fields share; anything left at its default is the portal. */
   const shared = (id: string): VoiceInputProps => ({
     submit,
-    onDeleteRecording: (result) => {
-      note(`DELETE /api/voice/${result.audioId}`, "deleted")
-    },
     // One recording at a time across the form, as in the portal.
     disabled: active !== null && active !== id,
     onActiveChange: (on) =>
@@ -263,35 +236,6 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
           />
           <Value>{Math.round(glowStrength * 100)}%</Value>
         </Row>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <p className="text-xs font-medium text-muted-foreground">
-          What the app received
-        </p>
-        {log.length === 0 ? (
-          <p className="font-mono text-xs text-muted-foreground/70">
-            Nothing yet. Record something.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-1 font-mono text-xs">
-            {log.map((entry) => (
-              <li
-                key={entry.id}
-                className={cn(
-                  "truncate",
-                  entry.tone === "deleted"
-                    ? "text-destructive"
-                    : entry.tone === "withheld"
-                      ? "text-foreground"
-                      : "text-muted-foreground"
-                )}
-              >
-                {entry.text}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   )

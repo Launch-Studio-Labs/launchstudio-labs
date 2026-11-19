@@ -53,9 +53,8 @@ and implements the frontend and backend. Nothing changes until you approve.
 Add the Voice Input component from Launch Studio Labs to my app.
 
 Skill (follow it): https://labs.launchstudio.space/skills/voice-input/SKILL.md
-Component (shadcn registry item): https://labs.launchstudio.space/r/voice-input.json
 
-Scan my repo first, then send me a short bullet plan and wait for my OK before you change anything. Once I approve, implement it end to end: frontend and backend.
+Component (shadcn registry item): https://labs.launchstudio.space/r/voice-input.json
 ```
 
 The page builds the URLs from the host it is served on, so a pull-request

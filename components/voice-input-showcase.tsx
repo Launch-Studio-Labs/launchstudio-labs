@@ -1,11 +1,16 @@
 "use client"
 
-import { useState, useSyncExternalStore, type ReactNode } from "react"
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react"
+import {
+  useState,
+  useSyncExternalStore,
+  type MouseEvent,
+  type ReactNode,
+} from "react"
+import { ArrowDownIcon, CheckIcon, CopyIcon } from "@phosphor-icons/react"
 
 import { PageHeader } from "@/components/page-header"
 import { VoiceInputDemo } from "@/components/demos/voice-input-demo"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
@@ -54,20 +59,38 @@ const SKILL_COMMAND =
 const SKILL_FILE = "/skills/voice-input/SKILL.md"
 const SKILL_INSTALL = "/skills/voice-input/references/install.md"
 
+const PROMPT_SECTION = "add-with-a-prompt"
+
+/**
+ * The page scrolls inside the docs shell, not the window, so a plain anchor
+ * jump is instant there. Glide instead — unless the reader asked for less
+ * motion — and keep the hash so the link still works without JavaScript.
+ */
+function scrollToPrompt(event: MouseEvent<HTMLAnchorElement>) {
+  const target = document.getElementById(PROMPT_SECTION)
+  if (!target) return
+  event.preventDefault()
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  target.scrollIntoView({
+    behavior: reduced ? "auto" : "smooth",
+    block: "start",
+  })
+  history.replaceState(null, "", `#${PROMPT_SECTION}`)
+}
+
 /**
  * What the Copy prompt button puts on the clipboard. Short on purpose: the
- * skill carries the workflow and the details, so the prompt only says what to
- * add, where the skill and the component live, and that nothing happens
- * without an OK. The origin is the host the page is served from, so a preview
- * copies URLs that exist on that preview.
+ * skill carries the workflow — scan, plan, wait for the OK, implement — so the
+ * prompt only says what to add and where the skill and the component live.
+ * The origin is the host the page is served from, so a preview copies URLs
+ * that exist on that preview.
  */
 function buildPrompt(origin: string) {
   return `Add the Voice Input component from Launch Studio Labs to my app.
 
 Skill (follow it): ${origin}/skills/voice-input/SKILL.md
-Component (shadcn registry item): ${origin}/r/voice-input.json
 
-Scan my repo first, then send me a short bullet plan and wait for my OK before you change anything. Once I approve, implement it end to end: frontend and backend.`
+Component (shadcn registry item): ${origin}/r/voice-input.json`
 }
 
 const SKILL_STEPS = [
@@ -123,25 +146,40 @@ export function VoiceInputShowcase() {
     <>
       <PageHeader href="/voice-input" />
 
-      <Prose className="labs-enter labs-enter-delay-2">
-        <p>
-          <strong>A normal text field with a microphone in its corner.</strong>{" "}
-          People type as usual; the mic is the extra. Press it, talk, stop — the
-          transcript is written into the same field. A player under the field
-          plays it back, and a line inside the field lets people decide whether
-          their recording is sent at all.
-        </p>
-        <p>
-          Try it below. Transcription is a stand-in here, so it works without an
-          API key; the log shows what your app would receive.
-        </p>
-      </Prose>
+      {/* The intro and its call to action are one block. */}
+      <div className="labs-enter labs-enter-delay-2 flex flex-col items-start gap-6">
+        <Prose>
+          <p>
+            <strong>
+              A normal text field with a microphone in its corner.
+            </strong>{" "}
+            People type as usual; the mic is the extra. Press it, talk, stop —
+            the transcript is written into the same field. A player under the
+            field plays it back, and a line inside the field lets people decide
+            whether their recording is sent at all.
+          </p>
+          <p>
+            Try it below. Transcription is a stand-in here, so it works without
+            an API key.
+          </p>
+        </Prose>
+        {/* A link, not a button: it moves down the page. */}
+        <a
+          href={`#${PROMPT_SECTION}`}
+          onClick={scrollToPrompt}
+          className={buttonVariants({ size: "lg" })}
+        >
+          Add it with a prompt
+          <ArrowDownIcon data-icon="inline-end" />
+        </a>
+      </div>
 
       <VoiceInputDemo className="labs-enter labs-enter-delay-3" />
 
       <Separator className="labs-enter labs-enter-delay-3" />
 
       <Section
+        id={PROMPT_SECTION}
         title="Add it with a prompt"
         className="labs-enter labs-enter-delay-3"
       >
@@ -277,8 +315,7 @@ export function VoiceInputShowcase() {
             <Code>level</Code>, <Code>bars</Code>, <Code>wave</Code> or{" "}
             <Code>dots</Code>. Each keeps moving in its own way while the take
             is transcribed, and on a single-line field it fades out behind the
-            text. The mic&apos;s
-            corners are concentric with the field&apos;s:{" "}
+            text. The mic&apos;s corners are concentric with the field&apos;s:{" "}
             <Code>buttonRadius=&quot;auto&quot;</Code> takes the field&apos;s
             radius minus the button&apos;s inset, or pass a number or{" "}
             <Code>&quot;full&quot;</Code>.
@@ -353,7 +390,7 @@ function PromptCard({ prompt }: { prompt: string }) {
 
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-muted p-3">
-      <pre className="px-2 pt-1 font-mono text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
+      <pre className="px-2 pt-1 font-mono text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-muted-foreground">
         {prompt}
       </pre>
       <Button size="lg" onClick={copy} className="self-start">
@@ -381,16 +418,22 @@ function PromptCard({ prompt }: { prompt: string }) {
 }
 
 function Section({
+  id,
   title,
   className,
   children,
 }: {
+  id?: string
   title: string
   className?: string
   children: ReactNode
 }) {
   return (
-    <section className={cn("flex flex-col gap-6", className)}>
+    <section
+      id={id}
+      // Lands with room above the heading, not flush to the top edge.
+      className={cn("flex scroll-mt-12 flex-col gap-6", className)}
+    >
       <h2 className="text-base font-medium">{title}</h2>
       {children}
     </section>

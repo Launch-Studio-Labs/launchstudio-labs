@@ -106,7 +106,7 @@ renders one (shadcn field style: `rounded-lg`, `bg-input/50`, `h-9` /
 | `playerWaveform` | `"bars"` | Recap player: `"bars"` / `"dots"`. |
 | `radius` | the field's | Built-in field and glow radius, px. |
 | `buttonRadius` | `"auto"` | Mic corners. `"auto"` = `max(0, fieldRadius − inset)`, measured (concentric); `"full"` = circle; a number = px. |
-| `glowVariant` / `glowColors` / `glowStrength` | `"mono"` / — / `1` | Voice Glow palette; `"mono"` is neutral. |
+| `glowVariant` / `glowColors` / `glowStrength` | `"mono"` / — / `1` | The palette for every field effect — the glow and the level / bars / wave / dots canvas, recording and processing alike. `"mono"` is neutral (theme ink). `glowStrength` is the glow only. |
 | `labels` | English | Every string, including `problems` and screen-reader `announce`. Translate here if the app is localised. |
 | `getStream(constraints)` | getUserMedia | Swap the audio source (tests, WebRTC). |
 

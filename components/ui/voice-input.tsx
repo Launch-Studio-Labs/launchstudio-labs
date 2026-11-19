@@ -42,6 +42,7 @@ import {
 } from "@phosphor-icons/react"
 import {
   VoiceBeam,
+  voicePalettes,
   type VoiceBeamColorVariant,
   type VoiceBeamMotion,
 } from "voice-glow"
@@ -972,6 +973,14 @@ export function VoiceInput({
     </div>
   ) : null
 
+  /**
+   * The other effects take the same palette, so one colour choice reads on
+   * all of them. `mono` keeps the theme's neutral ink (`--voice-wave`).
+   */
+  const effectColors =
+    glowColors ??
+    (glowVariant === "mono" ? undefined : voicePalettes[glowVariant][theme])
+
   /** Voice Glow's look, from the palette props. */
   const glowProps = {
     theme,
@@ -1041,6 +1050,7 @@ export function VoiceInput({
             getLevel={getLevel}
             paused={paused}
             processing={processing}
+            colors={effectColors}
           />
         )}
       </VoiceBeam>
@@ -1246,9 +1256,11 @@ function FieldVisual({
   getLevel,
   paused,
   processing,
+  colors,
 }: VisualProps & {
   visual: "level" | VoiceWaveformStyle
   processing: boolean
+  colors?: readonly string[]
 }) {
   return (
     <div
@@ -1269,13 +1281,21 @@ function FieldVisual({
         frozen={paused}
         processing={processing}
         waveform={visual}
+        colors={colors}
         className={cn(
           "absolute inset-x-3 inset-y-1.5 h-auto text-[var(--voice-wave,var(--color-foreground))]",
+          // A palette reads lighter than ink, so it gets a little more.
           visual === "wave"
-            ? "opacity-35"
+            ? colors
+              ? "opacity-55"
+              : "opacity-35"
             : visual === "level"
-              ? "opacity-25"
-              : "opacity-[0.16]"
+              ? colors
+                ? "opacity-40"
+                : "opacity-25"
+              : colors
+                ? "opacity-30"
+                : "opacity-[0.16]"
         )}
       />
     </div>
