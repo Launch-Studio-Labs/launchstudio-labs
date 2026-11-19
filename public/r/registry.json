@@ -17,6 +17,19 @@
           "target": "components/ui/empty-state.tsx"
         }
       ]
+    },
+    {
+      "name": "visual-concentric-radius",
+      "type": "registry:lib",
+      "title": "Visual Concentric Radius",
+      "description": "Inner corner radius for nested rounded elements: the concentric rule, with a floor so small radii never go sharp.",
+      "files": [
+        {
+          "path": "lib/visual-concentric-radius.ts",
+          "type": "registry:lib",
+          "target": "lib/visual-concentric-radius.ts"
+        }
+      ]
     }
   ]
 }

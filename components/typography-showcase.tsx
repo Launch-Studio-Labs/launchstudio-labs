@@ -1,8 +1,8 @@
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
 import { PageHeader } from "@/components/page-header"
+import { Prose } from "@/components/prose"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
 
 /**
  * The two settings, one run of copy each, in the order the demo takes them.
@@ -24,51 +24,6 @@ const WIDTH_NOTES = [
 
 const CARD_INTRO =
   "Here is how those settings look applied to a real component."
-
-/**
- * Splits a paragraph on its `**` markers and lifts what they hold: full
- * foreground at medium weight, against body copy set a step back. Weight and
- * colour together are what makes a phrase catch at a glance — either one on
- * its own reads as an accident.
- */
-function emphasise(paragraph: string) {
-  // The capture group lands on every odd index; the rest is plain text.
-  return paragraph.split(/\*\*(.+?)\*\*/g).map((part, index) =>
-    index % 2 === 0 ? (
-      part
-    ) : (
-      <strong key={index} className="font-medium text-foreground">
-        {part}
-      </strong>
-    )
-  )
-}
-
-/**
- * A run of body copy. Paragraphs are parted by a blank line rather than a
- * spacing step: `1lh` is one line of the text's own leading, so the gap tracks
- * the type instead of drifting from it when the size changes.
- */
-function Prose({
-  className,
-  paragraphs,
-}: {
-  className?: string
-  paragraphs: readonly string[]
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-[1lh] text-sm leading-normal text-body",
-        className
-      )}
-    >
-      {paragraphs.map((paragraph) => (
-        <p key={paragraph}>{emphasise(paragraph)}</p>
-      ))}
-    </div>
-  )
-}
 
 /**
  * The page is prose plus two demos. The demos themselves live in
