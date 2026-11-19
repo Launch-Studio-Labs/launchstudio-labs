@@ -57,6 +57,19 @@
         }
       ],
       "docs": "Voice Input wraps a text field: use <VoiceInput /> as is (it renders the field) or wrap your own Input/Textarea. Wire onTranscribe to your server and honour sendRecording=false (transcribe, never store). Glow: Voice Glow by Jakub Antalik (https://libraries.dev/voice), MIT License, Copyright (c) 2026 Jakub Antalik. Guide: https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main/skills/voice-input/SKILL.md"
+    },
+    {
+      "name": "visual-concentric-radius",
+      "type": "registry:lib",
+      "title": "Visual Concentric Radius",
+      "description": "Inner corner radius for nested rounded elements: the concentric rule, with a floor so small radii never go sharp.",
+      "files": [
+        {
+          "path": "lib/visual-concentric-radius.ts",
+          "type": "registry:lib",
+          "target": "lib/visual-concentric-radius.ts"
+        }
+      ]
     }
   ]
 }

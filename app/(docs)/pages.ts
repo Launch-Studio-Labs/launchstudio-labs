@@ -9,6 +9,10 @@ export const docsPages = {
   "/": { title: "Empty state", section: "Library" },
   "/voice-input": { title: "Voice Input", section: "Library" },
   "/typography": { title: "Width & line height", section: "Practices" },
+  "/concentric-radii": {
+    title: "Visually concentric radii",
+    section: "Practices",
+  },
 } as const satisfies Record<string, { title: string; section: string }>
 
 export type DocsHref = keyof typeof docsPages
