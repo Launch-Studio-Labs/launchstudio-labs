@@ -108,12 +108,59 @@ export type VoiceFieldEffect = "glow" | "level" | VoiceWaveformStyle | "none"
 
 /**
  * The mic button's corner radius.
- * - `"auto"`: concentric with the field — the field's radius minus the
- *   button's inset (`max(0, fieldRadius - inset)`)
+ * - `"auto"`: visually concentric with the field — the textbook
+ *   `fieldRadius - inset` where it holds, but never sharper than a 5px corner
+ *   or half the field's radius while the field is curved, never rounder than
+ *   the field, and at most half the button (see `visualConcentricRadius`)
  * - `"full"`: a circle
  * - a number: that radius, in px
  */
 export type VoiceButtonRadius = "auto" | "full" | number
+
+/**
+ * The visually concentric rule from the Labs Concentric radii practice
+ * (https://labs.launchstudio.space/concentric-radii), inlined so this file
+ * stays self-contained.
+ *
+ *   inner = min(outer, max(outer - padding, outer * ratio, floor), size / 2)
+ *
+ * The textbook `outer - padding` runs out on small radii — an 8px field with
+ * an 8px inset leaves a 0px corner, square inside round. This keeps the
+ * textbook value where it holds and puts a floor under it while the parent is
+ * curved: at least half the outer radius, at least 5px (about where a corner
+ * starts to read as rounded), never rounder than the parent, never more than
+ * half the inner element's short side. A square parent keeps a square child;
+ * a pill parent gets a pill child.
+ */
+export function visualConcentricRadius({
+  outer,
+  padding,
+  size,
+  floor = 5,
+  ratio = 0.5,
+}: {
+  /** The parent's corner radius in px, or `"full"` for a pill. */
+  outer: number | "full"
+  /** Gap between the parent's edge and the inner element, in px. */
+  padding: number
+  /** The inner element's shorter side, in px. Caps the result at half of it. */
+  size?: number
+  /** Smallest radius the inner element gets while the parent is curved. */
+  floor?: number
+  /** Smallest share of the outer radius the inner element keeps. */
+  ratio?: number
+}): number {
+  const cap = size === undefined ? Infinity : Math.max(0, size / 2)
+
+  if (outer === "full") return Math.min(9999, cap)
+  if (outer <= 0) return 0
+
+  const radius = Math.min(
+    outer,
+    Math.max(outer - padding, outer * ratio, floor)
+  )
+  return Math.min(radius, cap)
+}
 
 /** What `onTranscribe` resolves with. */
 export interface VoiceTranscription {
@@ -415,7 +462,7 @@ export interface VoiceInputProps extends Omit<
   playerWaveform?: VoiceWaveformStyle
   /** Corner radius of the field in px. Default: the field's own. */
   radius?: number
-  /** The mic button's corner radius. @default "auto" (concentric) */
+  /** The mic button's corner radius. @default "auto" (visually concentric) */
   buttonRadius?: VoiceButtonRadius
   /** Voice Glow palette. @default "mono" (neutral) */
   glowVariant?: VoiceBeamColorVariant
@@ -611,10 +658,10 @@ export function VoiceInput({
     return () => input.removeEventListener("input", measure)
   }, [showFieldVisual, text])
 
-  // The button's corners follow the field's: concentric by default, so the
-  // gap between them is even all the way round. Measured, not assumed — the
-  // field may be yours, with its own radius, and the inset differs between
-  // an input (4px) and a textarea (8px).
+  // The button's corners follow the field's: visually concentric by default
+  // (`visualConcentricRadius`). Measured, not assumed — the field may be
+  // yours, with its own radius, and the inset differs between an input (4px)
+  // and a textarea (8px).
   useEffect(() => {
     const wrapper = wrapperRef.current
     const corner = cornerRef.current
@@ -624,6 +671,7 @@ export function VoiceInput({
     if (!wrapper || !corner) return
     const measure = () => {
       let fieldRadius = 0
+      let pill = false
       let inset = 0
       if (field) {
         const fieldRect = field.getBoundingClientRect()
@@ -635,14 +683,23 @@ export function VoiceInput({
             fieldRect.right - cornerRect.right
           )
         )
-        fieldRadius = parseFloat(getComputedStyle(field).borderTopRightRadius)
+        const raw = getComputedStyle(field).borderTopRightRadius
+        fieldRadius = parseFloat(raw)
         if (!Number.isFinite(fieldRadius)) fieldRadius = 0
+        // `rounded-full` (or a percentage) is a pill: the button follows.
+        pill = raw.endsWith("%") || fieldRadius >= fieldRect.height / 2
+        if (pill) fieldRadius = fieldRect.height / 2
       }
+      const size = corner.offsetWidth
       const value =
         buttonRadius === "full"
-          ? corner.offsetWidth / 2
+          ? size / 2
           : buttonRadius === "auto"
-            ? Math.max(0, fieldRadius - inset)
+            ? visualConcentricRadius({
+                outer: pill ? "full" : fieldRadius,
+                padding: inset,
+                size,
+              })
             : Math.max(0, buttonRadius)
       corner.style.setProperty("--voice-button-radius", `${value}px`)
       wrapper.style.setProperty("--voice-field-radius", `${fieldRadius}px`)
@@ -1067,8 +1124,9 @@ export function VoiceInput({
         }}
         className={cn(
           "absolute top-1 right-1 z-20 size-7 group-has-[[data-slot=textarea]]/voice-field:top-2 group-has-[[data-slot=textarea]]/voice-field:right-2",
-          // Until it is measured: concentric with a shadcn rounded-lg field.
-          "[--voice-button-radius:max(0px,calc(var(--radius,0.5rem)-4px))] group-has-[[data-slot=textarea]]/voice-field:[--voice-button-radius:max(0px,calc(var(--radius,0.5rem)-8px))]"
+          // Until it is measured: the same visual rule against a shadcn
+          // rounded-lg field — min(R, max(R - inset, R / 2, 5px), 14px).
+          "[--voice-button-radius:min(var(--radius,0.5rem),max(calc(var(--radius,0.5rem)-4px),calc(var(--radius,0.5rem)*0.5),5px),14px)] group-has-[[data-slot=textarea]]/voice-field:[--voice-button-radius:min(var(--radius,0.5rem),max(calc(var(--radius,0.5rem)-8px),calc(var(--radius,0.5rem)*0.5),5px),14px)]"
         )}
       >
         <span

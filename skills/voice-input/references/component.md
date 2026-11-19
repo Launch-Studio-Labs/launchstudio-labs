@@ -1,7 +1,7 @@
 # Voice Input — the component (Phase 3, step 2)
 
 A normal text field with a mic in its corner. Idle: the field and a small
-mic button top-right, its corners concentric with the field's. Recording:
+mic button top-right, its corners visually concentric with the field's. Recording:
 stop button, Voice Glow along the field, "Listening" + clock + mic picker
 under it. Processing: spinner, "Writing your answer…". Done:
 the transcript is in the field, the corner button resets (with a confirm), a
@@ -105,7 +105,7 @@ renders one (shadcn field style: `rounded-lg`, `bg-input/50`, `h-9` /
 | `fieldEffect` | `"glow"` | Voice drawn inside the field: `"glow"` (Voice Glow), `"level"` (bars across the full width), `"bars"`, `"wave"`, `"dots"`, `"none"`. Each has its own motion while the take is transcribed; on a single-line field the non-glow effects fade out behind the text. |
 | `playerWaveform` | `"bars"` | Recap player: `"bars"` / `"dots"`. |
 | `radius` | the field's | Built-in field and glow radius, px. |
-| `buttonRadius` | `"auto"` | Mic corners. `"auto"` = `max(0, fieldRadius − inset)`, measured (concentric); `"full"` = circle; a number = px. |
+| `buttonRadius` | `"auto"` | Mic corners. `"auto"` is visually concentric, measured from the real field and inset: `min(R, max(R − inset, R × 0.5, 5px), 14px)` — the textbook `R − inset` where it holds, never sharper than 5px or half the field's radius while the field is curved, never rounder than the field, at most half the 28px button. A square field keeps a square button; a pill field gets a circle. `"full"` = circle; a number = px. |
 | `glowVariant` / `glowColors` / `glowStrength` | `"mono"` / — / `1` | The palette for every field effect — the glow and the level / bars / wave / dots canvas, recording and processing alike. `"mono"` is neutral (theme ink). `glowStrength` is the glow only. |
 | `labels` | English | Every string, including `problems` and screen-reader `announce`. Translate here if the app is localised. |
 | `getStream(constraints)` | getUserMedia | Swap the audio source (tests, WebRTC). |

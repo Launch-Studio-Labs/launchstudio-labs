@@ -74,8 +74,8 @@ Or by hand: `npm install voice-glow @phosphor-icons/react`,
 
 Optional looks: `fieldEffect` draws the voice inside the field (`glow`,
 `level`, `bars`, `wave`, `dots`), each with its own motion while
-transcribing; `buttonRadius` is `"auto"` (concentric with the field),
-`"full"` or px.
+transcribing; `buttonRadius` is `"auto"` (visually concentric with the
+field: `min(R, max(R − inset, R / 2, 5px), button / 2)`), `"full"` or px.
 
 To keep the skill in your agent instead:
 `npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/voice-input`.

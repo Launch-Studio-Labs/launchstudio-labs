@@ -17,6 +17,7 @@ import {
   type VoiceInputProps,
   type VoiceSubmitMode,
   type VoiceTranscribe,
+  visualConcentricRadius,
   type VoiceFieldEffect,
 } from "@/components/ui/voice-input"
 import { cn } from "@/lib/utils"
@@ -94,7 +95,11 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
     }
 
   const fieldRadius = radius ?? FIELD_RADIUS
-  const autoButtonRadius = Math.max(0, fieldRadius - INPUT_INSET)
+  const autoButtonRadius = visualConcentricRadius({
+    outer: fieldRadius,
+    padding: INPUT_INSET,
+    size: ROUND * 2,
+  })
   // A radius past half the button already draws a circle.
   const shownButtonRadius = Math.min(
     ROUND,
@@ -215,8 +220,8 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
             onPressedChange={(pressed) => {
               if (pressed) setButtonRadius("auto")
             }}
-            aria-label="Concentric with the field"
-            title="Field radius minus the mic's inset"
+            aria-label="Visually concentric with the field"
+            title="Field radius minus the mic's inset, never sharper than 5px or half the field's radius"
             className="h-7 shrink-0 px-2.5 text-xs"
           >
             Auto
