@@ -268,3 +268,105 @@
     animation-delay: 300ms;
   }
 }
+
+/*
+  Empty states. The art draws itself frame by frame; these are the few
+  pieces that are plain loops, so they run on the compositor instead.
+*/
+
+/* New words for a new state arrive, rather than swap. A short blur bridges
+   the old and new text so the eye reads one change, not two. */
+@keyframes es-swap {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+    transform: translateY(3px);
+  }
+}
+
+@keyframes es-sweep {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+@keyframes es-scan {
+  0% {
+    transform: translateY(calc(var(--es-scan, 62px) * -1));
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--es-scan, 62px));
+    opacity: 0;
+  }
+}
+
+/* Still for most of the loop, then a short flinch. */
+@keyframes es-jolt {
+  0%,
+  82%,
+  100% {
+    transform: translateX(0);
+  }
+  85% {
+    transform: translateX(-3px);
+  }
+  88% {
+    transform: translateX(3px);
+  }
+  91% {
+    transform: translateX(-2px);
+  }
+  94% {
+    transform: translateX(1px);
+  }
+}
+
+@keyframes es-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@layer utilities {
+  .es-swap {
+    animation: es-swap 260ms var(--ease-settle) both;
+  }
+  .es-sweep {
+    animation: es-sweep 1.6s var(--ease-morph) infinite;
+  }
+  .es-scan {
+    animation: es-scan 2.4s var(--ease-morph) infinite;
+  }
+  .es-jolt {
+    animation: es-jolt 3.2s linear infinite;
+  }
+  .es-pulse {
+    animation: es-pulse 2s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .es-swap {
+      animation-name: es-fade;
+    }
+    .es-sweep,
+    .es-scan,
+    .es-jolt,
+    .es-pulse {
+      animation: none;
+    }
+  }
+}
+
+@keyframes es-fade {
+  from {
+    opacity: 0;
+  }
+}

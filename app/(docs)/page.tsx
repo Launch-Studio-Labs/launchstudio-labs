@@ -6,7 +6,7 @@ import { EmptyStateShowcase } from "@/components/empty-state-showcase"
 export const metadata: Metadata = {
   title: docsTitle("/"),
   description:
-    "A polished, accessible empty state component with five useful variants.",
+    "Six common empty states, each drawn in four black-and-white directions that move on their own and answer the cursor.",
 }
 
 export default function Page() {

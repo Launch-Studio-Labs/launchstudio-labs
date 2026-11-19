@@ -6,7 +6,7 @@
  * copy, so the three can never drift apart.
  */
 export const docsPages = {
-  "/": { title: "Empty state", section: "Library" },
+  "/": { title: "Empty states", section: "Library" },
   "/typography": { title: "Width & line height", section: "Practices" },
 } as const satisfies Record<string, { title: string; section: string }>
 

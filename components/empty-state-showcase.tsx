@@ -1,124 +1,109 @@
-"use client"
-
-import { useState } from "react"
-import { CheckIcon, CopyIcon } from "@phosphor-icons/react"
-
+import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
+import { EmptyStateMatrixDemo } from "@/components/demos/empty-state-matrix-demo"
+import {
+  EMPTY_STATE_TYPES,
+  EMPTY_STATES,
+} from "@/components/empty-states/states"
+import { EMPTY_STATE_STYLES } from "@/components/empty-states/styles"
 import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card"
-import {
-  EMPTY_STATE_VARIANT,
-  EmptyStateDemo,
-} from "@/components/demos/empty-state-demo"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-const installCommand =
-  "pnpm dlx shadcn@latest add https://labs.launchstudio.space/r/empty-state.json"
-
-function CopyButtonIcon({ copied }: { copied: boolean }) {
+/**
+ * A name and a line about it, as a two-column list: the name in full ink,
+ * the line set back as body copy. Used for both the states and the styles.
+ */
+function Glossary({
+  items,
+  className,
+}: {
+  items: readonly { term: string; detail: string }[]
+  className?: string
+}) {
   return (
-    <span className="relative size-4 shrink-0">
-      <span
-        className={cn(
-          "absolute inset-0 flex items-center justify-center transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-          copied
-            ? "scale-[0.25] opacity-0 blur-[4px]"
-            : "blur-0 scale-100 opacity-100"
-        )}
-      >
-        <CopyIcon className="size-4" />
-      </span>
-      <span
-        className={cn(
-          "absolute inset-0 flex items-center justify-center transition-[opacity,scale,filter] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-          copied
-            ? "blur-0 scale-100 opacity-100"
-            : "scale-[0.25] opacity-0 blur-[4px]"
-        )}
-      >
-        <CheckIcon className="size-4" />
-      </span>
-    </span>
+    <dl
+      className={cn(
+        "grid grid-cols-[6rem_minmax(0,1fr)] gap-x-6 gap-y-3 text-sm leading-normal",
+        className
+      )}
+    >
+      {items.map((item) => (
+        <div key={item.term} className="contents">
+          <dt className="font-medium text-foreground">{item.term}</dt>
+          <dd className="text-body">{item.detail}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
+/**
+ * An exploration, not a finished component: six states every product meets,
+ * each drawn in four directions, so one can be picked and packaged. The page
+ * opens on one state at full size, then lays out the whole set.
+ */
 export function EmptyStateShowcase() {
-  const [copied, setCopied] = useState(false)
-
-  function copyCommand() {
-    void navigator.clipboard.writeText(installCommand)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1600)
-  }
-
   return (
     <>
       <PageHeader href="/" />
 
-      <div className="labs-enter labs-enter-delay-2 flex items-center gap-4">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground" />
-            }
-          >
-            {installCommand}
-          </TooltipTrigger>
-          <TooltipContent className="max-w-sm font-mono text-xs break-all">
-            {installCommand}
-          </TooltipContent>
-        </Tooltip>
-        <Button
-          aria-label="Copy install command"
-          size="lg"
-          onClick={copyCommand}
-        >
-          <CopyButtonIcon copied={copied} />
-          {copied ? "Copied" : "Copy"}
-        </Button>
+      <div className="labs-enter labs-enter-delay-2 flex flex-col gap-[1lh] text-sm leading-normal text-body">
+        <p>
+          An empty state is what a screen shows when there’s nothing to show.
+          It’s often the first thing a new user sees, so it should{" "}
+          <strong className="font-medium text-foreground">
+            say why it’s empty and what to do next
+          </strong>
+          .
+        </p>
+        <p>
+          This is an exploration:{" "}
+          <strong className="font-medium text-foreground">
+            six common empty states, each drawn in four directions
+          </strong>
+          . All black and white, and all of them move, on their own or under the
+          cursor. One direction gets picked and packaged.
+        </p>
       </div>
 
-      <Tabs defaultValue="preview" className="labs-enter labs-enter-delay-3">
-        <TabsList>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-          <TabsTrigger value="code">Code</TabsTrigger>
-        </TabsList>
+      <EmptyStateDemo className="labs-enter labs-enter-delay-3" />
 
-        {/* The same demo the playground renders, so the preview here and
-            the capture there can never drift apart. */}
-        <TabsContent value="preview">
-          <EmptyStateDemo />
-        </TabsContent>
+      <Separator className="labs-enter labs-enter-delay-3" />
 
-        <TabsContent value="code">
-          <Card>
-            <CardHeader>
-              <h3 className="font-heading text-base font-medium">Usage</h3>
-              <CardDescription className="text-pretty">
-                Pick one of five variants.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <pre className="overflow-x-auto rounded-lg bg-muted p-5 font-mono text-xs leading-normal">
-                <code>
-                  {`import { EmptyState } from "@/components/ui/empty-state"\n\n<EmptyState\n  variant="${EMPTY_STATE_VARIANT}"\n  onAction={() => {}}\n/>`}
-                </code>
-              </pre>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <p className="labs-enter labs-enter-delay-3 text-sm leading-normal text-body">
+        <strong className="font-medium text-foreground">
+          Every state in every style.
+        </strong>{" "}
+        Read across a row to see if a style holds together, and down a column to
+        compare four takes on the same moment. Hover a tile to see it react.
+      </p>
+
+      <EmptyStateMatrixDemo
+        data-breakout
+        className="labs-enter labs-enter-delay-3"
+      />
+
+      <Separator className="labs-enter labs-enter-delay-4" />
+
+      <div className="labs-enter labs-enter-delay-4 flex flex-col gap-6">
+        <h2 className="text-base font-medium">The states</h2>
+        <Glossary
+          items={EMPTY_STATE_TYPES.map((type) => ({
+            term: EMPTY_STATES[type].name,
+            detail: EMPTY_STATES[type].when,
+          }))}
+        />
+      </div>
+
+      <div className="labs-enter labs-enter-delay-4 flex flex-col gap-6">
+        <h2 className="text-base font-medium">The styles</h2>
+        <Glossary
+          items={EMPTY_STATE_STYLES.map((style) => ({
+            term: style.name,
+            detail: style.summary,
+          }))}
+        />
+      </div>
     </>
   )
 }
