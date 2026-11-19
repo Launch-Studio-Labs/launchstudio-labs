@@ -7,6 +7,7 @@
  */
 export const docsPages = {
   "/": { title: "Empty state", section: "Library" },
+  "/voice-input": { title: "Voice Input", section: "Library" },
   "/typography": { title: "Width & line height", section: "Practices" },
 } as const satisfies Record<string, { title: string; section: string }>
 

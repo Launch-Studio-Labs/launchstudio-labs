@@ -17,6 +17,33 @@
           "target": "components/ui/empty-state.tsx"
         }
       ]
+    },
+    {
+      "name": "voice-input",
+      "type": "registry:ui",
+      "title": "Voice Input",
+      "description": "Record, review and send a spoken answer: mic permissions and picker, live and playback waveforms, pause, re-record with confirm, and a send/withhold-recording choice. Glow by Voice Glow (Jakub Antalik, MIT).",
+      "registryDependencies": ["button", "dropdown-menu", "popover"],
+      "dependencies": ["voice-glow@^0.3.0", "@phosphor-icons/react"],
+      "files": [
+        {
+          "path": "components/ui/voice-input.tsx",
+          "type": "registry:ui"
+        },
+        {
+          "path": "components/ui/voice-waveform.tsx",
+          "type": "registry:ui"
+        },
+        {
+          "path": "hooks/use-voice-recorder.ts",
+          "type": "registry:hook"
+        },
+        {
+          "path": "lib/voice-recording.ts",
+          "type": "registry:lib"
+        }
+      ],
+      "docs": "Voice Input uses Voice Glow by Jakub Antalik (https://libraries.dev/voice), MIT License, Copyright (c) 2026 Jakub Antalik. Wire onTranscribe to your server and honour sendRecording=false (transcribe, never store). Guide: https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main/skills/voice-input/SKILL.md"
     }
   ]
 }

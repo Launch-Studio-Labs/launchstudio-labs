@@ -3,6 +3,7 @@ import type { ComponentType } from "react"
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
+import { VoiceInputDemo } from "@/components/demos/voice-input-demo"
 
 export type Demo = {
   /** Also the playground's URL segment: /playground/<id>. */
@@ -22,6 +23,11 @@ export const demos: Demo[] = [
     id: "empty-state",
     title: "Empty state",
     component: EmptyStateDemo,
+  },
+  {
+    id: "voice-input",
+    title: "Voice Input",
+    component: VoiceInputDemo,
   },
   {
     id: "width-and-leading",
