@@ -4,3 +4,7 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   msw: false
+  # esbuild and workerd come in with wrangler; their prebuilt binaries arrive
+  # as optional dependencies, so the install scripts are not needed.
+  esbuild: false
+  workerd: false

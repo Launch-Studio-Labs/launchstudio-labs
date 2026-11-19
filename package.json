@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "shadcn build && next build",
+    "build:preview": "shadcn build && NEXT_STATIC_EXPORT=1 next build",
     "registry:build": "shadcn build",
     "start": "next start",
     "lint": "eslint",
@@ -36,6 +37,7 @@
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "4.164.0"
   }
 }
