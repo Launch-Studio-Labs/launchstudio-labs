@@ -39,9 +39,9 @@ import { cn } from "@/lib/utils"
 /**
  * Dials: a floating panel for tuning each empty-state style by hand.
  *
- * Local dev only. It is mounted through `dials-gate.tsx`, which imports this
- * file behind `process.env.NODE_ENV === "development"`, so a production or
- * preview build never emits it.
+ * Local dev and preview deploys only. It is mounted through
+ * `dials-gate.tsx`, which imports this file behind a build-time check, so a
+ * production build never emits it.
  *
  * Every dial writes straight into the tuning store the art reads from, so the
  * picture answers as the value moves. Values persist for the browser session;

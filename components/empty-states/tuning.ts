@@ -6,9 +6,10 @@ import { useSyncExternalStore } from "react"
  * The numbers each style is drawn with, in one place.
  *
  * The defaults here are the look that ships. Nothing in production changes
- * them: the only writer is the dials panel, which exists in local dev alone
- * (see `components/dev`). Keeping the values out of the art files means a
- * set of dials copied out of that panel can be pasted straight back here.
+ * them: the only writer is the dials panel, which exists in local dev and on
+ * preview deploys alone (see `components/dev`). Keeping the values out of the
+ * art files means a set of dials copied out of that panel can be pasted
+ * straight back here.
  */
 
 export type TunedStyleId = "field" | "fold" | "signal" | "ghost"

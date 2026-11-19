@@ -54,7 +54,7 @@ export default function RootLayout({
         */}
         <ThemeProvider forcedTheme="light" enableSystem={false}>
           {children}
-          {/* Local dev only; renders nothing in any build. See dials-gate.tsx. */}
+          {/* Dev and preview builds only; nothing in production. See dials-gate.tsx. */}
           <DevDials />
         </ThemeProvider>
       </body>

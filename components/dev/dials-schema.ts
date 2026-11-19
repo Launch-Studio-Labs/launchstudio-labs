@@ -2,9 +2,9 @@ import type { TunedStyleId, Tuning } from "@/components/empty-states/tuning"
 
 /**
  * What the dials panel shows for each style: labels, ranges, steps and
- * groups. Dev only — this file is reached through the panel alone, so none of
- * it is in a production bundle. The values themselves (and their defaults)
- * live in `components/empty-states/tuning.ts`.
+ * groups. Dev and preview only: this file is reached through the panel
+ * alone, so none of it is in a production bundle. The values themselves (and
+ * their defaults) live in `components/empty-states/tuning.ts`.
  */
 
 export type Dial =
