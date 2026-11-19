@@ -1,8 +1,10 @@
 import type { ComponentType } from "react"
 
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
+import { ConcentricRadiiDemo } from "@/components/demos/concentric-radii-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
+import { VoiceInputDemo } from "@/components/demos/voice-input-demo"
 
 export type Demo = {
   /** Also the playground's URL segment: /playground/<id>. */
@@ -24,6 +26,11 @@ export const demos: Demo[] = [
     component: EmptyStateDemo,
   },
   {
+    id: "voice-input",
+    title: "Voice Input",
+    component: VoiceInputDemo,
+  },
+  {
     id: "width-and-leading",
     title: "Width & leading",
     component: MeasureDemo,
@@ -32,6 +39,11 @@ export const demos: Demo[] = [
     id: "body-copy-card",
     title: "Body copy card",
     component: BodyCopyDemo,
+  },
+  {
+    id: "concentric-radii",
+    title: "Concentric radii",
+    component: ConcentricRadiiDemo,
   },
 ]
 
