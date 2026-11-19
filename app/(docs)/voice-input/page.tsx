@@ -6,7 +6,7 @@ import { VoiceInputShowcase } from "@/components/voice-input-showcase"
 export const metadata: Metadata = {
   title: docsTitle("/voice-input"),
   description:
-    "Record, review and send a spoken answer: permissions, live waveform, playback, re-record and a clear choice about sending the audio.",
+    "A normal text field with a microphone in its corner: record, transcribe into the same field, play back, reset, and choose whether the recording is sent.",
 }
 
 export default function Page() {

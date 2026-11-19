@@ -22,7 +22,7 @@
       "name": "voice-input",
       "type": "registry:ui",
       "title": "Voice Input",
-      "description": "Record, review and send a spoken answer: mic permissions and picker, live and playback waveforms, pause, re-record with confirm, and a send/withhold-recording choice. Glow by Voice Glow (Jakub Antalik, MIT).",
+      "description": "A normal text input or textarea with a microphone in its corner: record with Voice Glow along the field, level meter, mic picker, transcript written into the same field, recap player, reset with confirm, and a send/don't-send-recordings line inside the field. Glow by Voice Glow (Jakub Antalik, MIT).",
       "registryDependencies": ["button", "dropdown-menu", "popover"],
       "dependencies": ["voice-glow@^0.3.0", "@phosphor-icons/react"],
       "files": [
@@ -43,7 +43,7 @@
           "type": "registry:lib"
         }
       ],
-      "docs": "Voice Input uses Voice Glow by Jakub Antalik (https://libraries.dev/voice), MIT License, Copyright (c) 2026 Jakub Antalik. Wire onTranscribe to your server and honour sendRecording=false (transcribe, never store). Guide: https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main/skills/voice-input/SKILL.md"
+      "docs": "Voice Input wraps a text field: use <VoiceInput /> as is (it renders the field) or wrap your own Input/Textarea. Wire onTranscribe to your server and honour sendRecording=false (transcribe, never store). Glow: Voice Glow by Jakub Antalik (https://libraries.dev/voice), MIT License, Copyright (c) 2026 Jakub Antalik. Guide: https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main/skills/voice-input/SKILL.md"
     }
   ]
 }

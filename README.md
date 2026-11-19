@@ -22,10 +22,23 @@ import { Button } from "@/components/ui/button";
 
 ## Voice Input
 
-A record → transcribe → review control with a mic picker, live and playback
-waveforms, pause, re-record with confirm, and a send / withhold-recording
-choice. Docs and playground: https://labs.launchstudio.space/voice-input
-(`/playground/voice-input` for the bare demo).
+A normal text input or textarea with a microphone in its corner — the
+layout of the Launch Studio portal's voice answers. People type as usual;
+pressing the mic records (Voice Glow along the field, level meter, timer and
+mic picker underneath), and the transcript is written into the same field.
+Afterwards the corner button resets the answer with a confirm, a recap player
+sits under the field, and a line inside the field lets people stop their
+recordings being sent. Docs and playground:
+https://labs.launchstudio.space/voice-input (`/playground/voice-input` for
+the bare demo).
+
+```tsx
+<VoiceInput multiline value={answer} onValueChange={setAnswer} onTranscribe={transcribe} />
+// or put the mic on your own field
+<VoiceInput value={name} onValueChange={setName} onTranscribe={transcribe}>
+  <Input value={name} onChange={(e) => setName(e.target.value)} />
+</VoiceInput>
+```
 
 Install through the registry:
 
@@ -39,9 +52,9 @@ Or by hand: `npm install voice-glow @phosphor-icons/react`,
 `components/ui/voice-input.tsx`, `components/ui/voice-waveform.tsx`,
 `hooks/use-voice-recorder.ts` and `lib/voice-recording.ts`.
 
-`skills/voice-input/SKILL.md` is the agent guide: install paths, wiring,
-microphone permissions, an OpenAI transcription route, and how to honour
-"don't send recordings" end to end (including deleting stored audio).
+`skills/voice-input/SKILL.md` is the agent guide: install paths, wrapping a
+field, microphone permissions, an OpenAI transcription route, and how to
+honour "don't send recordings" end to end (including deleting stored audio).
 
 The glow is [Voice Glow](https://libraries.dev/voice) by Jakub Antalik, MIT
 License, Copyright (c) 2026 Jakub Antalik — see `THIRD_PARTY_NOTICES.md`.

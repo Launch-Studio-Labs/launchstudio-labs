@@ -22,20 +22,31 @@ const FILES = [
 
 const USAGE = `import { VoiceInput, VoiceTranscriptionError } from "@/components/ui/voice-input"
 
+const transcribe = async (take, { sendRecording, signal }) => {
+  const form = new FormData()
+  form.set("file", take.blob)
+  form.set("keep_audio", sendRecording ? "1" : "0")
+  const res = await fetch("/api/voice", { method: "POST", body: form, signal })
+  if (!res.ok) throw new VoiceTranscriptionError("failed")
+  return res.json() // { transcript, audioId }
+}
+
+// The default: a text field with the mic in its corner.
 <VoiceInput
-  onTranscribe={async (take, { sendRecording, signal }) => {
-    const form = new FormData()
-    form.set("file", take.blob)
-    form.set("keep_audio", sendRecording ? "1" : "0")
-    const res = await fetch("/api/voice", { method: "POST", body: form, signal })
-    if (!res.ok) throw new VoiceTranscriptionError("failed")
-    return res.json() // { transcript, audioId }
-  }}
-  onResult={(result) => setAnswer(result.transcript)}
+  multiline
+  value={answer}
+  onValueChange={setAnswer}
+  placeholder="Type, or press the mic and say it"
+  onTranscribe={transcribe}
   onDeleteRecording={(result) =>
     fetch(\`/api/voice/\${result.audioId}\`, { method: "DELETE" })
   }
-/>`
+/>
+
+// Or put the mic on your own shadcn field.
+<VoiceInput value={name} onValueChange={setName} onTranscribe={transcribe}>
+  <Input value={name} onChange={(e) => setName(e.target.value)} />
+</VoiceInput>`
 
 const TOKENS = `/* Optional — these are the defaults, from your shadcn theme. */
 :root {
@@ -73,11 +84,13 @@ export function VoiceInputShowcase() {
 
       <Prose className="labs-enter labs-enter-delay-2">
         <p>
-          A record button that handles the{" "}
-          <strong>whole trip from microphone to transcript</strong>: asking for
-          permission, a live waveform while you talk, pause, playback after,
-          re-record with a confirm, and a clear choice about whether the audio
-          leaves the device at all.
+          <strong>A normal text field with a microphone in its corner.</strong>{" "}
+          People type as usual; the mic is the extra. Press it and the field
+          glows while you talk, with a level meter, the clock and the microphone
+          underneath. Stop, and the transcript is written into the same field.
+          After that the corner button resets the answer, a player under the
+          field plays the recording back, and a line inside the field lets the
+          person decide whether their recording is sent at all.
         </p>
         <p>
           Every state is reachable below without a microphone or an API key —
@@ -133,7 +146,15 @@ export function VoiceInputShowcase() {
                 your aliases differ.
               </p>
             </Step>
-            <Step n={4} title="Tune the colours, if you like">
+            <Step n={4} title="Put it on a field">
+              <p className="text-sm text-body">
+                Use it as it comes — it renders the field — or wrap the{" "}
+                <Code>Input</Code> / <Code>Textarea</Code> you already have. If
+                your <Code>Popover</Code> and <Code>DropdownMenu</Code> are the
+                Radix flavour, see the skill for the three small changes.
+              </p>
+            </Step>
+            <Step n={5} title="Tune the colours, if you like">
               <CodeBlock>{TOKENS}</CodeBlock>
             </Step>
           </TabsContent>
@@ -144,14 +165,19 @@ export function VoiceInputShowcase() {
         <CodeBlock>{USAGE}</CodeBlock>
         <Prose>
           <p>
-            Without <Code>onTranscribe</Code> it is a plain voice recorder.{" "}
-            <Code>submit</Code> picks what happens when a take ends:{" "}
-            <Code>&quot;auto&quot;</Code> sends it,{" "}
-            <Code>&quot;review&quot;</Code> transcribes and waits for the person
-            to accept, and <Code>&quot;manual&quot;</Code> holds the take until
-            they press Send. Every part — glow, waveform, playback, mic picker,
-            timer, pause, the confirm — has its own prop, and all copy goes
-            through <Code>labels</Code>.
+            Leave out <Code>children</Code> and it renders the field itself —
+            single line by default, a textarea with <Code>multiline</Code>. Pass
+            your own <Code>Input</Code> or <Code>Textarea</Code> and the mic
+            sits on that instead. The transcript replaces the text, or with{" "}
+            <Code>insert=&quot;append&quot;</Code> follows it.
+          </p>
+          <p>
+            Everything else is opt-in: <Code>submit=&quot;manual&quot;</Code>{" "}
+            holds a take under the field until the person presses Send,{" "}
+            <Code>allowPause</Code> adds pause, <Code>meter</Code> swaps the
+            level bars for a waveform, and the glow, mic picker, timer, player,
+            recording line and reset confirm each have their own switch. All
+            copy goes through <Code>labels</Code>.
           </p>
         </Prose>
       </Section>
@@ -162,7 +188,8 @@ export function VoiceInputShowcase() {
       >
         <Prose>
           <p>
-            People can turn sending their recording off. When they do,{" "}
+            Once a field has a recording, a line inside it lets people turn
+            sending recordings off. When they do,{" "}
             <strong>
               the audio still goes to transcription but must not be kept
             </strong>
@@ -174,8 +201,8 @@ export function VoiceInputShowcase() {
           <p>
             Turning it off after a recording was sent calls{" "}
             <Code>onDeleteRecording</Code> with the stored <Code>audioId</Code>{" "}
-            — so does re-recording or deleting. The component can only ask;
-            deleting the file is your server&apos;s job.
+            — so does resetting the answer or a new take replacing it. The
+            component can only ask; deleting the file is your server&apos;s job.
           </p>
         </Prose>
       </Section>

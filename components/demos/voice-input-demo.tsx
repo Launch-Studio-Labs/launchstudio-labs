@@ -14,16 +14,15 @@ import { DemoFrame } from "@/components/demos/demo-frame"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   VoiceInput,
   VoiceTranscriptionError,
-  type VoiceInputSize,
-  type VoiceInputVariant,
+  type VoiceInputProps,
+  type VoiceInsertMode,
+  type VoiceMeterStyle,
   type VoiceSubmitMode,
   type VoiceTranscribe,
-  type VoiceWaveformStyle,
 } from "@/components/ui/voice-input"
 import { cn } from "@/lib/utils"
 
@@ -41,120 +40,115 @@ const TONES: Record<
   colorful: { glow: "colorful", label: "Colorful" },
 }
 
-const DEFAULT_RADIUS: Record<VoiceInputSize, number> = {
-  sm: 20,
-  md: 24,
-  lg: 28,
-}
+/** The field's own corner, `rounded-lg` at the Labs radius. */
+const FIELD_RADIUS = 9
 
 const PARTS = [
   ["showGlow", "Glow"],
-  ["showWaveform", "Waveform"],
-  ["showPlayback", "Playback"],
   ["showMicPicker", "Mic picker"],
   ["showTimer", "Timer"],
-  ["showTranscript", "Transcript"],
+  ["showPlayback", "Playback"],
   ["showRecordingToggle", "Recording choice"],
-  ["confirmReset", "Confirm delete"],
+  ["confirmReset", "Confirm reset"],
   ["allowPause", "Pause"],
   ["autoGainControl", "Auto gain"],
 ] as const
 
 type Part = (typeof PARTS)[number][0]
 
+/** Every default here is the component's own: the portal layout. */
 const DEFAULT_PARTS: Record<Part, boolean> = {
   showGlow: true,
-  showWaveform: true,
-  showPlayback: true,
   showMicPicker: true,
   showTimer: true,
-  showTranscript: true,
+  showPlayback: true,
   showRecordingToggle: true,
   confirmReset: true,
   allowPause: false,
   autoGainControl: true,
 }
 
-/** What the "server" would say, by length — the demo has no model behind it. */
-const SAMPLE_TRANSCRIPTS = [
-  "Quick one: the launch moves to Thursday.",
-  "We want the onboarding to feel calm, not chatty. Fewer steps, clearer copy, and a real empty state on the dashboard.",
-  "Here's the longer version. The pricing page should lead with the team plan, the FAQ needs the refund answer near the top, and the footer links can lose the duplicate docs entry.",
-]
+/** What the "server" writes, by length — the demo has no model behind it. */
+const SAMPLE_TRANSCRIPTS = {
+  short: [
+    "Launch moves to Thursday.",
+    "A calmer onboarding with fewer steps.",
+    "Lead the pricing page with the team plan.",
+  ],
+  long: [
+    "Quick one: the launch moves to Thursday.",
+    "We want the onboarding to feel calm, not chatty. Fewer steps, clearer copy, and a real empty state on the dashboard.",
+    "Here's the longer version. The pricing page should lead with the team plan, the FAQ needs the refund answer near the top, and the footer links can lose the duplicate docs entry.",
+  ],
+}
 
 type LogEntry = { id: number; text: string; tone?: "withheld" | "deleted" }
 
 /**
- * Voice Input with every switch it has, a microphone you can swap for a
- * synthetic one (or a blocked one), and a stand-in transcription service, so
- * every state is reachable without hardware or an API key.
+ * Two fields from a form — a short answer and a long one — each with Voice
+ * Input's mic in the corner, exactly as the component ships. The tabs under
+ * them are the props, layered on top of that default.
  *
- * The log under the control is the point of the privacy switch: it shows what
- * the app was handed — audio or not — and when stored audio was deleted.
+ * The microphone can be swapped for a synthetic or a blocked one and the
+ * transcription made to fail, so every state is reachable without hardware
+ * or an API key. The log is the point of the privacy line: it shows what the
+ * app was handed — audio or not — and when stored audio was deleted.
  */
 export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
   const [submit, setSubmit] = useState<VoiceSubmitMode>("auto")
+  const [insert, setInsert] = useState<VoiceInsertMode>("replace")
   const [mic, setMic] = useState<MicSource>("real")
   const [outcome, setOutcome] = useState<Outcome>("works")
-  const [inField, setInField] = useState(false)
 
-  const [variant, setVariant] = useState<VoiceInputVariant>("outline")
-  const [size, setSize] = useState<VoiceInputSize>("md")
-  const [waveform, setWaveform] = useState<VoiceWaveformStyle>("bars")
+  const [meter, setMeter] = useState<VoiceMeterStyle>("meter")
   const [tone, setTone] = useState<Tone>("neutral")
   const [radius, setRadius] = useState<number | null>(null)
-  const [glowStrength, setGlowStrength] = useState(0.8)
+  const [glowStrength, setGlowStrength] = useState(1)
 
   const [parts, setParts] = useState(DEFAULT_PARTS)
   const [sendRecording, setSendRecording] = useState(true)
-  const [text, setText] = useState("")
+  const [active, setActive] = useState<string | null>(null)
   const [log, setLog] = useState<LogEntry[]>([])
-  const logId = useRef(0)
-  const outcomeRef = useRef(outcome)
-  useEffect(() => {
-    outcomeRef.current = outcome
-  }, [outcome])
 
   const simulated = useSimulatedMicrophone()
 
   function note(text: string, tone?: LogEntry["tone"]) {
-    logId.current += 1
-    const entry = { id: logId.current, text, tone }
-    setLog((current) => [entry, ...current].slice(0, 4))
+    setLog((current) =>
+      [{ id: (current[0]?.id ?? 0) + 1, text, tone }, ...current].slice(0, 4)
+    )
   }
 
-  const transcribe: VoiceTranscribe = async (
-    take,
-    { sendRecording, signal }
-  ) => {
-    const kb = Math.max(1, Math.round(take.blob.size / 1024))
-    const seconds = (take.durationMs / 1000).toFixed(1)
-    note(
-      sendRecording
-        ? `POST /api/voice · ${seconds}s · ${kb} KB audio, kept`
-        : `POST /api/voice · ${seconds}s · ${kb} KB audio, transcribe and discard`,
-      sendRecording ? undefined : "withheld"
-    )
-    await wait(1400, signal)
-    if (outcomeRef.current === "fails") {
-      note("← 502 transcription failed")
-      throw new VoiceTranscriptionError("failed")
+  const transcriber =
+    (kind: keyof typeof SAMPLE_TRANSCRIPTS): VoiceTranscribe =>
+    async (take, { sendRecording, signal }) => {
+      const kb = Math.max(1, Math.round(take.blob.size / 1024))
+      const seconds = (take.durationMs / 1000).toFixed(1)
+      note(
+        sendRecording
+          ? `POST /api/voice · ${seconds}s · ${kb} KB audio, kept`
+          : `POST /api/voice · ${seconds}s · ${kb} KB audio, transcribe and discard`,
+        sendRecording ? undefined : "withheld"
+      )
+      await wait(1400, signal)
+      if (outcome === "fails") {
+        note("← 502 transcription failed")
+        throw new VoiceTranscriptionError("failed")
+      }
+      if (outcome === "empty") {
+        note("← 422 no words heard")
+        throw new VoiceTranscriptionError("empty")
+      }
+      const index = take.durationMs < 4000 ? 0 : take.durationMs < 12000 ? 1 : 2
+      const audioId = sendRecording
+        ? `rec_${Math.random().toString(36).slice(2, 8)}`
+        : null
+      note(
+        audioId
+          ? `← 200 transcript · stored as ${audioId}`
+          : "← 200 transcript · audio not stored"
+      )
+      return { transcript: SAMPLE_TRANSCRIPTS[kind][index], audioId }
     }
-    if (outcomeRef.current === "empty") {
-      note("← 422 no words heard")
-      throw new VoiceTranscriptionError("empty")
-    }
-    const index = take.durationMs < 4000 ? 0 : take.durationMs < 12000 ? 1 : 2
-    const audioId = sendRecording
-      ? `rec_${Math.random().toString(36).slice(2, 8)}`
-      : null
-    note(
-      audioId
-        ? `← 200 transcript · stored as ${audioId}`
-        : "← 200 transcript · audio not stored"
-    )
-    return { transcript: SAMPLE_TRANSCRIPTS[index], audioId }
-  }
 
   const getStream =
     mic === "simulated"
@@ -167,58 +161,60 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
         : undefined
 
   const toneStyle = TONES[tone]
-  const field = inField ? (
-    <Textarea
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      placeholder="Type, or record and the transcript lands here"
-      aria-label="Answer"
-      className="min-h-24 rounded-none border-0 bg-transparent px-4 pt-3.5 shadow-none focus-visible:ring-0"
-    />
-  ) : null
+  /** Props both fields share; anything left at its default is the portal. */
+  const shared = (id: string): VoiceInputProps => ({
+    submit,
+    insert,
+    getStream,
+    onDeleteRecording: (result) => {
+      note(`DELETE /api/voice/${result.audioId}`, "deleted")
+    },
+    // One recording at a time across the form, as in the portal.
+    disabled: active !== null && active !== id,
+    onActiveChange: (on) =>
+      setActive((current) => (on ? id : current === id ? null : current)),
+    sendRecording,
+    onSendRecordingChange: setSendRecording,
+    meter,
+    radius: radius ?? undefined,
+    glowVariant: toneStyle.glow,
+    glowStrength,
+    style: toneStyle.accent
+      ? ({ "--voice-accent": toneStyle.accent } as CSSProperties)
+      : undefined,
+    ...parts,
+    // A synthetic or blocked source has no devices to switch between.
+    showMicPicker: parts.showMicPicker && mic === "real",
+  })
 
   return (
     <div
       className={cn("flex w-content max-w-full flex-col gap-6", className)}
       {...props}
     >
-      <DemoFrame className="w-full min-w-0! px-4 py-10 sm:px-6">
-        <div className="flex w-full max-w-[26rem] flex-col gap-3">
-          <VoiceInput
-            // A new flow or microphone starts from a clean slate.
-            key={`${submit}-${mic}-${inField}`}
-            submit={submit}
-            getStream={getStream}
-            onTranscribe={transcribe}
-            onResult={(result) => {
-              if (inField) setText(result.transcript)
-            }}
-            onReset={() => {
-              if (inField) setText("")
-            }}
-            onDeleteRecording={(result) => {
-              note(`DELETE /api/voice/${result.audioId}`, "deleted")
-            }}
-            sendRecording={sendRecording}
-            onSendRecordingChange={setSendRecording}
-            variant={variant}
-            size={size}
-            radius={radius ?? undefined}
-            waveform={waveform}
-            glowVariant={toneStyle.glow}
-            glowStrength={glowStrength}
-            style={
-              toneStyle.accent
-                ? ({ "--voice-accent": toneStyle.accent } as CSSProperties)
-                : undefined
-            }
-            {...parts}
-            showTranscript={parts.showTranscript && !inField}
-            // A synthetic or blocked source has no devices to switch between.
-            showMicPicker={parts.showMicPicker && mic === "real"}
-          >
-            {field}
-          </VoiceInput>
+      <DemoFrame className="w-full min-w-0! px-4 py-8 sm:px-8">
+        {/* A new flow or microphone starts both fields from a clean slate. */}
+        <div
+          key={`${submit}-${mic}`}
+          className="flex w-full max-w-[26rem] flex-col gap-6 rounded-xl bg-card p-5 shadow-xs ring-1 ring-foreground/5"
+        >
+          <Field id="voice-demo-short" label="What should we call it?">
+            <VoiceInput
+              {...shared("short")}
+              placeholder="A working name is fine"
+              fieldProps={{ id: "voice-demo-short" }}
+              onTranscribe={transcriber("short")}
+            />
+          </Field>
+          <Field id="voice-demo-long" label="What should it do for people?">
+            <VoiceInput
+              {...shared("long")}
+              multiline
+              placeholder="Type, or press the mic and say it"
+              fieldProps={{ id: "voice-demo-long" }}
+              onTranscribe={transcriber("long")}
+            />
+          </Field>
         </div>
       </DemoFrame>
 
@@ -265,8 +261,16 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
             onChange={setSubmit}
             options={[
               ["auto", "Send"],
-              ["review", "Review"],
               ["manual", "Hold"],
+            ]}
+          />
+          <Choice
+            label="Transcript"
+            value={insert}
+            onChange={setInsert}
+            options={[
+              ["replace", "Replaces text"],
+              ["append", "Appends"],
             ]}
           />
           <Choice
@@ -289,53 +293,23 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
               ["empty", "Hears nothing"],
             ]}
           />
-          <Row label="Send audio">
+          <Row label="Send recordings">
             <Switch
               size="sm"
               checked={sendRecording}
               onCheckedChange={setSendRecording}
-              aria-label="Send audio with the transcript"
-            />
-          </Row>
-          <Row label="Inside a field">
-            <Switch
-              size="sm"
-              checked={inField}
-              onCheckedChange={setInField}
-              aria-label="Put a text field inside the control"
+              aria-label="Send recordings with the answers"
             />
           </Row>
         </TabsContent>
 
         <TabsContent value="look" className="flex flex-col gap-3">
           <Choice
-            label="Surface"
-            value={variant}
-            onChange={setVariant}
+            label="Meter"
+            value={meter}
+            onChange={setMeter}
             options={[
-              ["outline", "Outline"],
-              ["soft", "Soft"],
-              ["ghost", "Ghost"],
-            ]}
-          />
-          <Choice
-            label="Size"
-            value={size}
-            onChange={(next) => {
-              setSize(next)
-              setRadius(null)
-            }}
-            options={[
-              ["sm", "S"],
-              ["md", "M"],
-              ["lg", "L"],
-            ]}
-          />
-          <Choice
-            label="Waveform"
-            value={waveform}
-            onChange={setWaveform}
-            options={[
+              ["meter", "Level"],
               ["bars", "Bars"],
               ["wave", "Line"],
               ["dots", "Dots"],
@@ -352,17 +326,17 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
           />
           <Row label="Radius">
             <Slider
-              aria-label="Corner radius"
+              aria-label="Field corner radius"
               min={0}
-              max={32}
+              max={24}
               step={1}
-              value={[radius ?? DEFAULT_RADIUS[size]]}
+              value={[radius ?? FIELD_RADIUS]}
               onValueChange={(value) =>
                 setRadius(Array.isArray(value) ? value[0] : value)
               }
               className="w-44"
             />
-            <Value>{radius ?? DEFAULT_RADIUS[size]}px</Value>
+            <Value>{radius === null ? "Field" : `${radius}px`}</Value>
           </Row>
           <Row label="Glow">
             <Slider
@@ -400,6 +374,26 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+/** A form question: label over the field, as the portal sets them. */
+function Field({
+  id,
+  label,
+  children,
+}: {
+  id: string
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="text-sm leading-snug font-semibold">
+        {label}
+      </label>
+      {children}
     </div>
   )
 }

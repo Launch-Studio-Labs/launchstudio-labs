@@ -5,12 +5,28 @@ description: Install and wire up the Launch Studio Labs Voice Input component (s
 
 # Voice Input
 
-A shadcn-style React component for recording a spoken answer and turning it
-into text. It owns the whole client flow — microphone permission, recording,
-live waveform, pause, playback, re-record with confirm, mic picker, error and
-silence handling — and hands you two hooks into your backend:
+A shadcn-style React component that puts a **microphone in the corner of a
+normal text field**. The field stays a field — people type into it as usual —
+and voice is the extra:
+
+- Idle: an `Input` or `Textarea` with a small round mic button top-right.
+- Recording: the button becomes stop, Voice Glow plays along the field, and
+  a line under the field shows a level meter, "Listening", the clock and a
+  mic picker.
+- Processing: spinner in the corner, "Writing your answer…" under the field.
+- Done: the transcript is written into the same field. The corner button
+  becomes reset (with a confirm), a recap player sits under the field, and a
+  line pinned inside the field says whether recordings are sent, with a link
+  to turn that off.
+
+It is the layout of the Launch Studio portal's voice answers (`VoiceMic` in
+the portal), with neutral colours. You hook it to your backend with
 `onTranscribe` (send a take, get text back) and `onDeleteRecording` (forget
 stored audio).
+
+**Don't build a standalone recorder** (a big record button, a pill or a panel
+that replaces the text field) as the default. Put the mic on the field the
+form already has.
 
 Live docs and playground: https://labs.launchstudio.space/voice-input
 Source: https://github.com/Launch-Studio-Labs/launchstudio-labs (files listed below)
@@ -61,10 +77,13 @@ the docs page prints the command for whichever host you open it on.)
    - `lib/voice-recording.ts` — pure helpers (also used on the server)
 4. If your `Popover` / `DropdownMenu` are the **Radix** flavour, adjust the
    few Base UI-specific bits in `voice-input.tsx`:
-   - `<PopoverTrigger render={<IconAction …/>}>` → `<PopoverTrigger asChild><IconAction …/></PopoverTrigger>`
    - `initialFocus={cancelRef}` on `PopoverContent` → `onOpenAutoFocus={(e) => { e.preventDefault(); cancelRef.current?.focus() }}`
    - `data-popup-open:` variants → `data-[state=open]:`
-5. Optional colour tokens (these are the defaults, taken from your theme):
+   - `DropdownMenuRadioGroup`'s `onValueChange` receives a string in both; the
+     `String(value)` cast can stay.
+5. Put it on a field: render `<VoiceInput />` as is, or wrap your existing
+   `Input` / `Textarea` (section 2).
+6. Optional colour tokens (these are the defaults, taken from your theme):
    ```css
    :root {
      --voice-accent: var(--foreground);            /* recording button */
@@ -78,9 +97,12 @@ Verify the install with your typecheck and lint before going further.
 
 ## 2. Use it
 
+### The default: it renders the field
+
 ```tsx
 "use client"
 
+import { useState } from "react"
 import {
   VoiceInput,
   VoiceTranscriptionError,
@@ -103,60 +125,99 @@ const transcribe: VoiceTranscribe = async (take, { sendRecording, signal }) => {
 }
 
 export function Answer() {
-  const [sendRecording, setSendRecording] = useState(true) // persist this
+  const [answer, setAnswer] = useState("")
+  const [sendRecording, setSendRecording] = useState(true) // persist this with the form
   return (
-    <VoiceInput
-      onTranscribe={transcribe}
-      onResult={(result) => saveAnswer(result.transcript, result.audioId)}
-      onReset={() => saveAnswer("", null)}
-      onDeleteRecording={(result) =>
-        fetch(`/api/voice/${result.audioId}`, { method: "DELETE" }).then((r) => {
-          if (!r.ok) throw new Error("delete failed") // the component shows an error
-        })
-      }
-      sendRecording={sendRecording}
-      onSendRecordingChange={setSendRecording}
-    />
+    <div className="flex flex-col gap-2">
+      <Label htmlFor="answer">What should it do for people?</Label>
+      <VoiceInput
+        multiline
+        value={answer}
+        onValueChange={setAnswer}
+        placeholder="Type, or press the mic and say it"
+        fieldProps={{ id: "answer", name: "answer" }}
+        onTranscribe={transcribe}
+        onDeleteRecording={(result) =>
+          fetch(`/api/voice/${result.audioId}`, { method: "DELETE" }).then((r) => {
+            if (!r.ok) throw new Error("delete failed") // shows "couldn't delete"
+          })
+        }
+        sendRecording={sendRecording}
+        onSendRecordingChange={setSendRecording}
+      />
+    </div>
   )
 }
 ```
+
+Without `multiline` it is a single-line input. The built-in field uses the
+portal's field style (`rounded-lg`, transparent border, `bg-input/50`, `h-9`
+input / `min-h-24` textarea) so it looks the same in any app.
+
+### Or wrap your own field
+
+```tsx
+<VoiceInput value={name} onValueChange={setName} onTranscribe={transcribe}>
+  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+</VoiceInput>
+```
+
+The wrapped field must be (or contain) an element with
+`data-slot="input"` or `data-slot="textarea"` — shadcn's `Input` and
+`Textarea` already have it. That is how the component reserves right padding
+for the button (`pr-10` / `pr-11`), places it (`top-1 right-1` on an input,
+`top-2 right-2` on a textarea) and adds bottom padding for the note inside
+the field. With `children`, the component can't set the text itself: pass
+`value` and it calls `onValueChange` with the new text when a transcript
+lands, or use `onResult`.
 
 ### Props worth knowing
 
 | Prop | Default | What it does |
 | --- | --- | --- |
-| `onTranscribe(take, { sendRecording, signal })` | — | Turn a take into text. Omit it for a plain voice recorder (no transcript, no privacy line). Throw `VoiceTranscriptionError("empty" \| "unconfigured" \| "failed")` to choose the message. Honour `signal` (cancel / unmount). |
-| `onResult(result)` | — | `{ transcript, durationMs, audio: Blob \| null, mimeType, audioId, sentRecording }`. `audio` is `null` when the person withheld it. |
-| `onReset()` | — | The person deleted the result (after the confirm). Clear what you saved. |
-| `onDeleteRecording(result)` | — | Called whenever stored audio must stop existing: re-record, delete, or sending turned off after a send. Only called when `result.audioId` is set. Reject to show "couldn't delete". |
-| `submit` | `"auto"` | `"auto"` sends when the take ends; `"review"` transcribes then waits for "Use transcript"; `"manual"` holds the take (playback + Send/Discard) until the person sends it. |
-| `sendRecording` / `defaultSendRecording` / `onSendRecordingChange` | `true` | The privacy choice. Controlled or not. |
-| `allowPause` | `false` | Pause/resume mid-take (time excludes pauses). |
+| `children` | built-in field | Your `Input` / `Textarea` to put the mic on. |
+| `multiline` | `false` | Built-in field is a textarea. |
+| `value` / `defaultValue` / `onValueChange` | — | The field's text. Typing and transcripts both go through `onValueChange`. |
+| `placeholder`, `fieldProps` | — | For the built-in field (`id`, `name`, `aria-*`, `maxLength`…). |
+| `insert` | `"replace"` | `"replace"` makes the transcript the field's text (portal); `"append"` adds it after what's there (reset then restores the earlier text). |
+| `onTranscribe(take, { sendRecording, signal })` | — | Turn a take into text. Omit it for a mic that only records (no note in the field). Throw `VoiceTranscriptionError("empty" \| "unconfigured" \| "failed")` to choose the message. Honour `signal`. |
+| `onResult(result)` | — | `{ transcript, value, durationMs, audio: Blob \| null, mimeType, audioId, sentRecording }`. `audio` is `null` when the person withheld it. |
+| `onReset()` | — | The person reset the answer (after the confirm). The text is cleared for you. |
+| `onDeleteRecording(result)` | — | Called whenever stored audio must stop existing: reset, a new take replacing it, or sending turned off after a send. Only called when `result.audioId` is set. Reject to show "couldn't delete". |
+| `onActiveChange(active)` | — | Recording started/stopped. Use it with `disabled` to allow one recording at a time across a form, as the portal does. |
+| `sendRecording` / `defaultSendRecording` / `onSendRecordingChange` | `true` | The privacy choice. Controlled or not. Usually one value for the whole form. |
+| `disabled` | `false` | Disables the mic only; the field stays usable. |
+| `submit` | `"auto"` | `"auto"` transcribes as soon as the take ends (portal). `"manual"` holds it under the field with playback, Discard and Send. |
+| `allowPause` | `false` | Pause/Resume in the meter row. |
 | `autoGainControl` | `true` | Leave it on. Off, quiet mics arrive too faint and the model returns an empty transcript. |
 | `maxDurationMs` / `minDurationMs` | 5 min / 700ms | Auto-stop; discard as `too-short`. Match `maxDurationMs` to your server's upload limit. |
-| `showGlow` `showWaveform` `showPlayback` `showMicPicker` `showTimer` `showTranscript` `showRecordingToggle` `confirmReset` | all `true` | Turn pieces of chrome off. |
-| `variant` | `"outline"` | `"outline" \| "soft" \| "ghost"` surface. |
-| `size` / `radius` | `"md"` / by size | `"sm" \| "md" \| "lg"`, radius in px. |
-| `waveform` | `"bars"` | `"bars" \| "wave" \| "dots"`, live and playback. |
-| `glowVariant` / `glowColors` / `glowStrength` | `"mono"` / — / `0.8` | Voice Glow palette; `"mono"` is neutral. |
-| `labels` | English | Every string, including `problems` and screen-reader `announce` messages. Translate here. |
+| `showGlow` `showMicPicker` `showTimer` `showPlayback` `showRecordingToggle` `confirmReset` | all `true` | Turn pieces off. |
+| `meter` | `"meter"` | Three level bars (portal) or a short `"bars"` / `"wave"` / `"dots"` waveform. |
+| `playerWaveform` | `"bars"` | Recap player style (`"bars"` / `"dots"`). |
+| `radius` | the field's | Corner radius of the built-in field and the glow, px. |
+| `glowVariant` / `glowColors` / `glowStrength` | `"mono"` / — / `1` | Voice Glow palette; `"mono"` (with grey band colours) is neutral. Brand it with `glowVariant="sunset"` etc. or your own colours. |
+| `labels` | English (portal copy) | Every string, including `problems` and screen-reader `announce` messages. Translate here. |
 | `getStream(constraints)` | getUserMedia | Swap the audio source (tests, synthetic mic, WebRTC). |
-| `children` | — | Rendered inside the glowing surface, above the controls — e.g. a borderless `<Textarea>` the transcript is written into (set `showTranscript={false}` and fill the field in `onResult`). |
 
-`useVoiceRecorder()` (in `hooks/`) is exported separately if the product needs
-a completely custom UI; it returns `status`, `problem`, `stream`, `analyser`,
+CSS tokens for the accent (stop button, meter): `--voice-accent`,
+`--voice-accent-foreground`; recap waveform: `--voice-wave`,
+`--voice-wave-rest`. All default to your theme's neutrals.
+
+`useVoiceRecorder()` (in `hooks/`) is exported separately if a product truly
+needs a different UI; it returns `status`, `problem`, `stream`, `analyser`,
 `getLevel`, `elapsedMs`, `quiet`, `inputs`, `activeInput` and
-`start/stop/pause/resume/cancel/chooseInput`.
+`start/stop/pause/resume/cancel/chooseInput`. Don't reach for it to rebuild
+the default.
 
-### States the person can see
+### States
 
-`ready` (idle) → `requesting` (waiting for the permission prompt) →
-`recording` ⇄ `paused` → `stopping` → `held` (manual) → `processing` →
-`review` (review mode) → `done`. Problems shown under the control:
-`unsupported`, `insecure`, `denied`, `no-device`, `too-short`, `silent`
-(the meter saw flat zeros — muted/virtual mic), `empty`, `unconfigured`,
-`failed` (take kept, "Try again" resends it), `delete-failed`.
-Escape discards a running take or cancels processing.
+`data-state` on the root: `idle` → `requesting` → `recording` ⇄ `paused` →
+`stopping` → `processing` → `recorded` (or `held` with `submit="manual"`).
+Problems shown under the field: `unsupported`, `insecure`, `denied`,
+`no-device`, `too-short`, `silent` (the meter saw flat zeros — muted/virtual
+mic), `empty`, `unconfigured`, `failed` (take kept; "Try again" resends it),
+`delete-failed`. Mic problems show the mic picker next to the message.
+Escape cancels a running take or a running transcription.
 
 ## 3. Microphone permission — what has to be true
 
@@ -212,14 +273,15 @@ is the app's job, on the server.** Do all of these:
 3. **Delete on opt-out.** If the person turns sending off after a recording
    was stored, the component calls `onDeleteRecording(result)` with its
    `audioId`. Delete the stored file *and* any reference to it (DB column,
-   draft JSON). Same on re-record and on delete.
+   draft JSON). Same when the answer is reset or a new take replaces it.
 4. **Persist the choice** with the rest of the form (one setting for the
    whole form is usually right), and re-apply it on the server at submit:
    if the saved choice is "don't send", strip audio references (and, if
    your product treats it as private, the verbatim transcript) from the
    submission and delete the files after the write succeeds. This catches
    anything a client failed to delete (closed tab, network error).
-5. **Re-recording deletes the old take** that was stored for the same field.
+5. **A new take deletes the old one** that was stored for the same field
+   (the component calls `onDeleteRecording` for it).
 
 The Launch Studio portal implements the stricter variant of 4: drafts keep
 audio so playback survives a reload, and on submit with recordings withheld
@@ -239,9 +301,12 @@ are true in your app.
   (`new DOMException("…", "NotAllowedError")`) to reach `denied`.
 - Headless Chromium: launch with `--use-fake-ui-for-media-stream
   --use-fake-device-for-media-stream` and grant `microphone`.
-- Check: denied, no mic, too-short, silent, failed + retry, opt-out after a
-  send triggers your DELETE, Escape mid-take, keyboard-only flow, dark mode,
-  Safari (mp4 recording and playback).
+- Check: the field is typable and text never runs under the corner button;
+  denied, no mic, too-short, silent, failed + retry; the transcript lands in
+  the field; reset confirm focuses Cancel; the note appears inside the field
+  only after a recording and never overlaps text; opt-out after a send
+  triggers your DELETE; Escape mid-take; keyboard-only flow; dark mode;
+  ~375px width; Safari (mp4 recording and playback).
 
 ## 7. Credit
 

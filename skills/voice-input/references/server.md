@@ -1,8 +1,10 @@
 # Voice Input — server reference (Next.js App Router)
 
-A transcription endpoint and a delete endpoint for `<VoiceInput>`, modelled
-on the Launch Studio portal (`lib/voice-answer-server.ts` +
-`app/api/intro-questionnaire/voice/route.ts`). Adapt storage, auth and rate
+A transcription endpoint and a delete endpoint for `<VoiceInput>` (the mic
+in the corner of a text field), modelled on the Launch Studio portal (`lib/voice-answer-server.ts` +
+`app/api/intro-questionnaire/voice/route.ts`). The client calls DELETE
+when the person resets an answer, when a new take replaces a stored one, and
+when they turn sending recordings off after a send. Adapt storage, auth and rate
 limiting to the app; keep the privacy behaviour as is.
 
 Environment:
