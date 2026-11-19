@@ -320,7 +320,11 @@ export function VoiceInputShowcase() {
             field&apos;s radius minus the button&apos;s inset, but never goes
             sharper than 5px or half the field&apos;s radius while the field is
             curved, never rounder than the field, and at most half the button —
-            the rule from the Labs Concentric radii practice. Or pass a number
+            the rule from the{" "}
+            <a href="/concentric-radii" className={LINK}>
+              Visually concentric radii
+            </a>{" "}
+            practice. Or pass a number
             or <Code>&quot;full&quot;</Code>.
           </p>
           <p>
