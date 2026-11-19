@@ -8,12 +8,13 @@ import {
   EMPTY_STATES,
 } from "@/components/empty-states/states"
 import { EMPTY_STATE_STYLES } from "@/components/empty-states/styles"
+import { focusStyle, useGlobalTuning } from "@/components/empty-states/tuning"
 import { cn } from "@/lib/utils"
 
 /**
  * Every state in every style, art only: a row per style, a column per state.
  * Reading across a row shows whether a style holds together; reading down a
- * column shows how differently the five say the same thing.
+ * column shows how differently the four say the same thing.
  *
  * Each tile is its own hover target, and art that scrolls out of view stops
  * drawing, so thirty of them cost little more than the ones on screen.
@@ -22,6 +23,8 @@ export function EmptyStateMatrixDemo({
   className,
   ...props
 }: ComponentProps<"div">) {
+  const { tileHeight } = useGlobalTuning()
+
   return (
     <div className={cn("w-full overflow-x-auto", className)} {...props}>
       <DemoFrame className="mx-auto">
@@ -59,7 +62,10 @@ export function EmptyStateMatrixDemo({
                     role="cell"
                     data-empty-state
                     aria-label={`${style.name}: ${EMPTY_STATES[type].name}`}
-                    className="relative h-[104px] overflow-hidden rounded-lg border border-border bg-background"
+                    style={{ height: tileHeight }}
+                    // Hovering a tile points the dev dials at its style.
+                    onPointerEnter={() => focusStyle(style.id)}
+                    className="relative overflow-hidden rounded-lg border border-border bg-background"
                   >
                     <div aria-hidden className="absolute inset-0">
                       <Art state={type} size="sm" />

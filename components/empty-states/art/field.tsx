@@ -11,6 +11,7 @@ import {
   type Frame,
 } from "@/components/empty-states/engine"
 import type { ArtProps, EmptyStateType } from "@/components/empty-states/states"
+import { useStyleTuning } from "@/components/empty-states/tuning"
 
 /**
  * Field: a grid of short strokes that turn together, like a combed surface.
@@ -21,9 +22,8 @@ import type { ArtProps, EmptyStateType } from "@/components/empty-states/states"
  * is just one more term in the flow: strokes near it swirl round it.
  */
 
-const GAP = { sm: 10, lg: 13 }
-const LENGTH = { sm: 5, lg: 7 }
-const WEIGHT = { sm: 1.75, lg: 2.25 }
+/** Matrix tiles draw the same field a size down. */
+const SMALL = 0.77
 
 /** Ink is drawn in this many steps, one path per step, not one per stroke. */
 const INK_STEPS = 12
@@ -126,6 +126,7 @@ function turnToward(from: number, to: number, amount: number) {
 
 export function FieldArt({ state, size = "lg" }: ArtProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const tuning = useStyleTuning("field")
   const strokes = useRef<{
     cols: number
     rows: number
@@ -133,96 +134,119 @@ export function FieldArt({ state, size = "lg" }: ArtProps) {
     ink: Float32Array
   } | null>(null)
 
-  useArtFrame(
-    canvasRef,
-    (frame: Frame) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const prepared = prepareCanvas(canvas, frame.width, frame.height)
-      if (!prepared) return
-      const { context, ink } = prepared
+  useArtFrame(canvasRef, (frame: Frame) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const prepared = prepareCanvas(canvas, frame.width, frame.height)
+    if (!prepared) return
+    const { context, ink } = prepared
 
-      const gap = GAP[size]
-      const cols = Math.floor(frame.width / gap)
-      const rows = Math.floor(frame.height / gap)
-      let field = strokes.current
-      let snap = frame.snap
-      if (!field || field.cols !== cols || field.rows !== rows) {
-        field = {
-          cols,
-          rows,
-          angle: new Float32Array(cols * rows),
-          ink: new Float32Array(cols * rows),
-        }
-        strokes.current = field
-        snap = true
+    const k = size === "sm" ? SMALL : 1
+    const gap = Math.max(tuning.gap * k, 3)
+    const cols = Math.floor(frame.width / gap)
+    const rows = Math.floor(frame.height / gap)
+    let field = strokes.current
+    let snap = frame.snap
+    if (!field || field.cols !== cols || field.rows !== rows) {
+      field = {
+        cols,
+        rows,
+        angle: new Float32Array(cols * rows),
+        ink: new Float32Array(cols * rows),
       }
+      strokes.current = field
+      snap = true
+    }
 
-      const turn = snap ? 1 : follow(frame, 5)
-      const fade = snap ? 1 : follow(frame, 6)
-      const originX = (frame.width - (cols - 1) * gap) / 2
-      const originY = (frame.height - (rows - 1) * gap) / 2
-      const unit = Math.min(frame.width, frame.height) / 2
-      const { pointer } = frame
-      const reach = gap * 3.6
+    const turn = snap ? 1 : follow(frame, tuning.turnRate)
+    const fade = snap ? 1 : follow(frame, tuning.turnRate * 1.2)
+    const originX = (frame.width - (cols - 1) * gap) / 2
+    const originY = (frame.height - (rows - 1) * gap) / 2
+    const unit = Math.min(frame.width, frame.height) / 2
+    const { pointer } = frame
+    const reach = gap * tuning.cursorRadius
+    const t = frame.t * tuning.tempo
+    const fadeFrom = 1 - tuning.edgeFade
 
-      const paths = Array.from({ length: INK_STEPS }, () => new Path2D())
-      const half = LENGTH[size] / 2
+    const paths = Array.from({ length: INK_STEPS }, () => new Path2D())
+    const half = (tuning.length * k) / 2
+    const mark = tuning.mark * k
 
-      for (let j = 0; j < rows; j++) {
-        for (let i = 0; i < cols; i++) {
-          const index = j * cols + i
-          const x = originX + i * gap
-          const y = originY + j * gap
-          const u = (x - frame.width / 2) / unit
-          const v = (y - frame.height / 2) / unit
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const index = j * cols + i
+        const x = originX + i * gap
+        const y = originY + j * gap
+        const u = (x - frame.width / 2) / unit
+        const v = (y - frame.height / 2) / unit
 
-          const target = flow(state, u, v, frame.t, i, j)
-          let targetAngle = target.angle
-          let targetInk = target.ink
+        const target = flow(state, u, v, t, i, j)
+        let targetAngle = target.angle
+        let targetInk = target.ink * tuning.contrast
 
-          if (pointer.inside) {
-            const dx = x - pointer.x
-            const dy = y - pointer.y
-            const pull = Math.exp(-(dx * dx + dy * dy) / (2 * reach * reach))
-            targetAngle = turnToward(
-              targetAngle,
-              Math.atan2(dy, dx) + Math.PI / 2,
-              pull * 0.9
-            )
-            targetInk += pull * 0.55
-          }
+        if (tuning.cursor && pointer.inside) {
+          const dx = x - pointer.x
+          const dy = y - pointer.y
+          const pull = Math.exp(-(dx * dx + dy * dy) / (2 * reach * reach))
+          targetAngle = turnToward(
+            targetAngle,
+            Math.atan2(dy, dx) + Math.PI / 2,
+            pull * tuning.cursorSwirl
+          )
+          targetInk += pull * tuning.cursorInk
+        }
 
-          field.angle[index] = turnToward(field.angle[index], targetAngle, turn)
-          field.ink[index] += (targetInk - field.ink[index]) * fade
+        field.angle[index] = turnToward(field.angle[index], targetAngle, turn)
+        field.ink[index] += (targetInk - field.ink[index]) * fade
 
-          // An elliptical vignette, so the field has no hard edge.
-          const ex = (x - frame.width / 2) / (frame.width / 2)
-          const ey = (y - frame.height / 2) / (frame.height / 2)
-          const edge = 1 - smoothstep(0.62, 1, Math.hypot(ex, ey))
-          const value = Math.min(field.ink[index], 1) * edge
-          if (value < 0.03) continue
+        // An elliptical vignette, so the field has no hard edge.
+        const ex = (x - frame.width / 2) / (frame.width / 2)
+        const ey = (y - frame.height / 2) / (frame.height / 2)
+        const edge =
+          fadeFrom >= 1 ? 1 : 1 - smoothstep(fadeFrom, 1, Math.hypot(ex, ey))
+        const value = Math.min(field.ink[index], 1) * edge
+        if (value < 0.03) continue
 
-          const step = Math.min(INK_STEPS - 1, Math.floor(value * INK_STEPS))
-          const length = half * (0.65 + 0.5 * value)
-          const cos = Math.cos(field.angle[index]) * length
-          const sin = Math.sin(field.angle[index]) * length
-          paths[step].moveTo(x - cos, y - sin)
-          paths[step].lineTo(x + cos, y + sin)
+        const step = Math.min(INK_STEPS - 1, Math.floor(value * INK_STEPS))
+        const path = paths[step]
+        const grow = 0.65 + 0.5 * value
+        const angle = field.angle[index]
+
+        if (tuning.shape === "dot") {
+          const r = mark * grow
+          path.moveTo(x + r, y)
+          path.arc(x, y, r, 0, TAU)
+        } else if (tuning.shape === "square") {
+          // Squares turn with the flow, so the grain still reads.
+          const r = mark * grow
+          const cos = Math.cos(angle + Math.PI / 4) * r * Math.SQRT2
+          const sin = Math.sin(angle + Math.PI / 4) * r * Math.SQRT2
+          path.moveTo(x + cos, y + sin)
+          path.lineTo(x - sin, y + cos)
+          path.lineTo(x - cos, y - sin)
+          path.lineTo(x + sin, y - cos)
+          path.closePath()
+        } else {
+          const length = half * grow
+          const cos = Math.cos(angle) * length
+          const sin = Math.sin(angle) * length
+          path.moveTo(x - cos, y - sin)
+          path.lineTo(x + cos, y + sin)
         }
       }
+    }
 
-      context.strokeStyle = ink
-      context.lineCap = "round"
-      context.lineWidth = WEIGHT[size]
-      paths.forEach((path, step) => {
-        context.globalAlpha = (step + 0.5) / INK_STEPS
-        context.stroke(path)
-      })
-      context.globalAlpha = 1
-    },
-    state
-  )
+    context.strokeStyle = ink
+    context.fillStyle = ink
+    context.lineCap = "round"
+    context.lineWidth = tuning.weight * k
+    paths.forEach((path, step) => {
+      context.globalAlpha = (step + 0.5) / INK_STEPS
+      if (tuning.shape === "stroke") context.stroke(path)
+      else context.fill(path)
+    })
+    context.globalAlpha = 1
+  })
 
   return <canvas ref={canvasRef} className="absolute inset-0 size-full" />
 }

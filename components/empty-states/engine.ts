@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react"
 
+import { getTuning, subscribeTuning } from "@/components/empty-states/tuning"
+
 /**
  * What every art component draws from. The art never runs its own loop: it is
  * handed a frame and moves its current values a step toward the state it was
@@ -58,13 +60,14 @@ function subscribe(callback: (now: number) => void) {
  *   `[data-empty-state]`), not just the art, so the art answers the card the
  *   reader is actually hovering. Touch is ignored: a tap is not a hover.
  * - Under `prefers-reduced-motion` it never subscribes to the ticker. It
- *   paints one still frame, and paints again, snapped, whenever `stateKey`
- *   changes or the box resizes.
+ *   paints one still frame, and paints again, snapped, whenever the art
+ *   re-renders (a new state, new tuning) or the box resizes.
+ * - The clock runs at the global tuning's `speed`, so the whole page can be
+ *   slowed, sped up or held. State changes still land at their own pace.
  */
 export function useArtFrame(
   ref: RefObject<Element | null>,
-  draw: (frame: Frame) => void,
-  stateKey: unknown
+  draw: (frame: Frame) => void
 ) {
   const drawRef = useRef(draw)
   const paintStillRef = useRef<(() => void) | null>(null)
@@ -80,22 +83,26 @@ export function useArtFrame(
     const host = element.closest("[data-empty-state]") ?? element
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
 
-    let reduced = motionQuery.matches
+    const isReduced = () =>
+      motionQuery.matches || getTuning().global.reducedPreview
+    let reduced = isReduced()
     let visible = false
     let width = 0
     let height = 0
     let first = true
     let last = performance.now()
-    const start = last
+    let clock = 0
     const pointer = { x: 0, y: 0, inside: false }
     let unsubscribe: (() => void) | null = null
 
     const paint = (now: number, snap: boolean) => {
       if (width === 0 || height === 0) return
       const jump = snap || first
+      const dt = jump ? 1 : Math.min((now - last) / 1000, 1 / 20)
+      if (!jump) clock += dt * getTuning().global.speed
       drawRef.current({
-        t: reduced ? STILL_T : (now - start) / 1000,
-        dt: jump ? 1 : Math.min((now - last) / 1000, 1 / 20),
+        t: reduced ? STILL_T : clock,
+        dt,
         snap: jump,
         width,
         height,
@@ -155,11 +162,14 @@ export function useArtFrame(
     host.addEventListener("pointerleave", onLeave)
 
     const onMotionChange = () => {
-      reduced = motionQuery.matches
+      const next = isReduced()
+      if (next === reduced) return
+      reduced = next
       first = true
       sync()
     }
     motionQuery.addEventListener("change", onMotionChange)
+    const unsubscribeTuning = subscribeTuning(onMotionChange)
 
     return () => {
       unsubscribe?.()
@@ -168,14 +178,16 @@ export function useArtFrame(
       host.removeEventListener("pointermove", onMove)
       host.removeEventListener("pointerleave", onLeave)
       motionQuery.removeEventListener("change", onMotionChange)
+      unsubscribeTuning()
       paintStillRef.current = null
     }
   }, [ref])
 
-  // A paused or reduced-motion art still has to show the new state.
+  // A paused or reduced-motion art still has to show what it was re-rendered
+  // with: a new state, or new tuning. Renders are rare, so this is cheap.
   useEffect(() => {
     paintStillRef.current?.()
-  }, [stateKey])
+  })
 }
 
 /* ------------------------------------------------------------------------ */

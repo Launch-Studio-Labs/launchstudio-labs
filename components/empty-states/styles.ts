@@ -3,14 +3,13 @@ import type { ComponentType } from "react"
 import { FieldArt } from "@/components/empty-states/art/field"
 import { FoldArt } from "@/components/empty-states/art/fold"
 import { GhostArt } from "@/components/empty-states/art/ghost"
-import { LineArt } from "@/components/empty-states/art/line"
 import { SignalArt } from "@/components/empty-states/art/signal"
 import type { ArtProps } from "@/components/empty-states/states"
 
 /**
- * The five directions. Each is one self-contained art component that draws
+ * The four directions. Each is one self-contained art component that draws
  * every state, so whichever is picked can be lifted out on its own with the
- * engine and the panel, and the other four left behind.
+ * engine and the panel, and the other three left behind.
  */
 export const EMPTY_STATE_STYLES = [
   {
@@ -28,17 +27,10 @@ export const EMPTY_STATE_STYLES = [
     art: FoldArt,
   },
   {
-    id: "line",
-    name: "Line",
-    summary:
-      "A single sharp stroke that redraws itself into each state’s glyph, with a short echo trailing behind it. The cursor tugs at it.",
-    art: LineArt,
-  },
-  {
     id: "signal",
     name: "Signal",
     summary:
-      "A dot matrix and a shimmering status line, the way AI tools show they’re thinking. The cursor lights the dots it passes.",
+      "A dot matrix that lights each state’s glyph, the way AI tools show they’re thinking. The cursor lights the dots it passes.",
     art: SignalArt,
   },
   {

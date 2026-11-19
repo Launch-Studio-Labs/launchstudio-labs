@@ -13,6 +13,7 @@ import {
   EMPTY_STATE_STYLES,
   type EmptyStateStyleId,
 } from "@/components/empty-states/styles"
+import { focusStyle } from "@/components/empty-states/tuning"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 
@@ -84,7 +85,11 @@ export function EmptyStateDemo({ className, ...props }: ComponentProps<"div">) {
           label="Style"
           value={styleId}
           options={STYLE_OPTIONS}
-          onChange={setStyleId}
+          onChange={(id) => {
+            setStyleId(id)
+            // Points the dev dials at the style on show.
+            focusStyle(id)
+          }}
         />
         <Picker
           label="State"

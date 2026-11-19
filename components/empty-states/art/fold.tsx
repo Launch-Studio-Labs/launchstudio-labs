@@ -13,6 +13,10 @@ import {
   type Frame,
 } from "@/components/empty-states/engine"
 import type { ArtProps, EmptyStateType } from "@/components/empty-states/states"
+import {
+  useStyleTuning,
+  type StyleTuning,
+} from "@/components/empty-states/tuning"
 
 /**
  * Fold: one sheet of paper, eight flat facets, refolded into each state's
@@ -70,7 +74,7 @@ function rotate(x: number, y: number, angle: number): [number, number] {
  * The shapes. Coordinates are on a 120 grid; each state's comment says what
  * the paper has become.
  */
-function shapeFor(state: EmptyStateType, t: number): Shape {
+function shapeFor(state: EmptyStateType, t: number, spinRate: number): Shape {
   switch (state) {
     // A blank page with its corner turned down: somewhere to start.
     case "first-use":
@@ -160,7 +164,7 @@ function shapeFor(state: EmptyStateType, t: number): Shape {
 
     // A pinwheel, turning while it waits.
     case "working": {
-      const spin = t * 1.1
+      const spin = t * spinRate
       const facets: Facet[] = []
       for (let blade = 0; blade < 4; blade++) {
         const angle = spin + (blade * Math.PI) / 2
@@ -191,16 +195,22 @@ function shade(
   faceX: number,
   faceY: number,
   light: number,
-  strength: number
+  strength: number,
+  tuning: StyleTuning<"fold">
 ) {
   const lit = faceX * Math.cos(light) + faceY * Math.sin(light)
-  return Math.min(Math.max(tone - 0.18 * strength * lit, 0.035), 0.96)
+  return Math.min(
+    Math.max(tone * tuning.contrast - tuning.light * strength * lit, 0.035),
+    0.96
+  )
 }
 
 export function FoldArt({ state }: ArtProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const groupRef = useRef<SVGGElement>(null)
   const facetRefs = useRef<(SVGPolygonElement | null)[]>([])
+  const creaseRefs = useRef<(SVGPolygonElement | null)[]>([])
+  const tuning = useStyleTuning("fold")
 
   // Everything that folds lives in one array, so one morph moves it all:
   // six coordinates per facet, then each facet's tone and facing vector.
@@ -215,86 +225,86 @@ export function FoldArt({ state }: ArtProps) {
     tiltY: number
   } | null>(null)
 
-  useArtFrame(
-    svgRef,
-    (frame: Frame) => {
-      const shape = shapeFor(state, frame.t)
-      if (!live.current) {
-        live.current = {
-          values: new Float32Array(VALUES),
-          target: new Float32Array(VALUES),
-          morph: createMorph(VALUES),
-          float: 0,
-          light: 0,
-          strength: 0.6,
-          tiltX: 0,
-          tiltY: 0,
-        }
+  useArtFrame(svgRef, (frame: Frame) => {
+    const shape = shapeFor(state, frame.t, tuning.spin)
+    if (!live.current) {
+      live.current = {
+        values: new Float32Array(VALUES),
+        target: new Float32Array(VALUES),
+        morph: createMorph(VALUES),
+        float: 0,
+        light: 0,
+        strength: 0.6,
+        tiltX: 0,
+        tiltY: 0,
       }
-      const s = live.current
-      const settle = follow(frame, 5)
+    }
+    const s = live.current
+    const settle = follow(frame, 5)
 
-      shape.facets.forEach((next, f) => {
-        s.target.set(next.points, f * 6)
-        s.target[TONE + f] = next.tone
-        s.target[FACE_X + f] = Math.cos(next.facing)
-        s.target[FACE_Y + f] = Math.sin(next.facing)
-      })
-      stepMorph(s.morph, frame, state, s.values, s.target)
+    shape.facets.forEach((next, f) => {
+      s.target.set(next.points, f * 6)
+      s.target[TONE + f] = next.tone
+      s.target[FACE_X + f] = Math.cos(next.facing)
+      s.target[FACE_Y + f] = Math.sin(next.facing)
+    })
+    stepMorph(s.morph, frame, state, s.values, s.target, tuning.morph)
 
-      const pointer = pointerInViewBox(frame, VIEW, VIEW)
-      const lightTarget = pointer.inside
-        ? Math.atan2(pointer.y - CENTER, pointer.x - CENTER)
-        : frame.t * 0.5
-      // Ease the light round the short way.
-      let turn = (lightTarget - s.light) % (Math.PI * 2)
-      if (turn > Math.PI) turn -= Math.PI * 2
-      if (turn < -Math.PI) turn += Math.PI * 2
-      s.light += turn * settle
-      s.strength = lerp(s.strength, pointer.inside ? 1 : 0.6, settle)
-      s.float = lerp(s.float, shape.float, settle)
+    const pointer = pointerInViewBox(frame, VIEW, VIEW)
+    const held = tuning.cursor && pointer.inside
+    const lightTarget = held
+      ? Math.atan2(pointer.y - CENTER, pointer.x - CENTER)
+      : frame.t * tuning.lightOrbit
+    // Ease the light round the short way.
+    let turn = (lightTarget - s.light) % (Math.PI * 2)
+    if (turn > Math.PI) turn -= Math.PI * 2
+    if (turn < -Math.PI) turn += Math.PI * 2
+    s.light += turn * settle
+    s.strength = lerp(s.strength, held ? 1 : 0.6, settle)
+    s.float = lerp(s.float, shape.float * tuning.float, settle)
 
-      for (let f = 0; f < FACETS; f++) {
-        const polygon = facetRefs.current[f]
-        if (!polygon) continue
-        polygon.setAttribute("points", polygonPoints(s.values, f * 6))
-        polygon.setAttribute(
-          "fill-opacity",
-          shade(
-            s.values[TONE + f],
-            s.values[FACE_X + f],
-            s.values[FACE_Y + f],
-            s.light,
-            s.strength
-          ).toFixed(3)
-        )
-      }
+    for (let f = 0; f < FACETS; f++) {
+      const points = polygonPoints(s.values, f * 6)
+      // Element opacity, not fill-opacity: the rounding stroke and the fill
+      // composite as one shape, so a rounded edge never reads darker.
+      facetRefs.current[f]?.setAttribute("points", points)
+      facetRefs.current[f]?.setAttribute(
+        "opacity",
+        shade(
+          s.values[TONE + f],
+          s.values[FACE_X + f],
+          s.values[FACE_Y + f],
+          s.light,
+          s.strength,
+          tuning
+        ).toFixed(3)
+      )
+      creaseRefs.current[f]?.setAttribute("points", points)
+    }
 
-      // A small tilt toward the cursor, as if the paper were held.
-      const tiltX = pointer.inside ? ((pointer.y - CENTER) / CENTER) * -10 : 0
-      const tiltY = pointer.inside ? ((pointer.x - CENTER) / CENTER) * 12 : 0
-      s.tiltX = lerp(s.tiltX, tiltX, settle)
-      s.tiltY = lerp(s.tiltY, tiltY, settle)
-      const bob = Math.sin(frame.t * 1.3) * s.float
-      if (groupRef.current) {
-        groupRef.current.setAttribute(
-          "transform",
-          `translate(0 ${bob.toFixed(2)})`
-        )
-      }
-      if (svgRef.current) {
-        svgRef.current.style.transform = `perspective(400px) rotateX(${s.tiltX.toFixed(2)}deg) rotateY(${s.tiltY.toFixed(2)}deg)`
-      }
-    },
-    state
-  )
+    // A small tilt toward the cursor, as if the paper were held.
+    const tiltX = held
+      ? ((pointer.y - CENTER) / CENTER) * -tuning.tilt * 0.83
+      : 0
+    const tiltY = held ? ((pointer.x - CENTER) / CENTER) * tuning.tilt : 0
+    s.tiltX = lerp(s.tiltX, tiltX, settle)
+    s.tiltY = lerp(s.tiltY, tiltY, settle)
+    const bob = Math.sin(frame.t * 1.3) * s.float
+    groupRef.current?.setAttribute(
+      "transform",
+      `translate(${CENTER} ${(CENTER + bob).toFixed(2)}) scale(${tuning.scale}) translate(${-CENTER} ${-CENTER})`
+    )
+    if (svgRef.current) {
+      svgRef.current.style.transform = `perspective(${tuning.perspective}px) rotateX(${s.tiltX.toFixed(2)}deg) rotateY(${s.tiltY.toFixed(2)}deg)`
+    }
+  })
 
   return (
     <svg
       ref={svgRef}
       viewBox={`0 0 ${VIEW} ${VIEW}`}
       preserveAspectRatio="xMidYMid meet"
-      className="absolute inset-0 size-full"
+      className="absolute inset-0 size-full overflow-visible"
     >
       <g ref={groupRef}>
         {Array.from({ length: FACETS }, (_, f) => (
@@ -304,9 +314,22 @@ export function FoldArt({ state }: ArtProps) {
               facetRefs.current[f] = node
             }}
             fill="currentColor"
-            fillOpacity={0}
+            stroke="currentColor"
+            strokeWidth={tuning.roundness}
+            strokeLinejoin="round"
+            opacity={0}
+          />
+        ))}
+        {/* The creases, drawn over every facet in the paper's own colour. */}
+        {Array.from({ length: FACETS }, (_, f) => (
+          <polygon
+            key={f}
+            ref={(node) => {
+              creaseRefs.current[f] = node
+            }}
+            fill="none"
             stroke="var(--background)"
-            strokeWidth={0.75}
+            strokeWidth={tuning.crease}
             strokeLinejoin="round"
           />
         ))}

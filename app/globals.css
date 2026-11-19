@@ -284,16 +284,6 @@
   }
 }
 
-/* The waiting shimmer: a band of full ink running through muted text. */
-@keyframes es-shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0% 0;
-  }
-}
-
 @keyframes es-sweep {
   from {
     transform: translateX(0);
@@ -305,7 +295,7 @@
 
 @keyframes es-scan {
   0% {
-    transform: translateY(-62px);
+    transform: translateY(calc(var(--es-scan, 62px) * -1));
     opacity: 0;
   }
   15%,
@@ -313,7 +303,7 @@
     opacity: 1;
   }
   100% {
-    transform: translateY(62px);
+    transform: translateY(var(--es-scan, 62px));
     opacity: 0;
   }
 }
@@ -349,20 +339,6 @@
   .es-swap {
     animation: es-swap 260ms var(--ease-settle) both;
   }
-  .es-shimmer {
-    color: transparent;
-    background-image: linear-gradient(
-      90deg,
-      var(--muted-foreground) 0%,
-      var(--muted-foreground) 40%,
-      var(--foreground) 50%,
-      var(--muted-foreground) 60%,
-      var(--muted-foreground) 100%
-    );
-    background-size: 300% 100%;
-    background-clip: text;
-    animation: es-shimmer 2.2s linear infinite;
-  }
   .es-sweep {
     animation: es-sweep 1.6s var(--ease-morph) infinite;
   }
@@ -380,16 +356,11 @@
     .es-swap {
       animation-name: es-fade;
     }
-    .es-shimmer,
     .es-sweep,
     .es-scan,
     .es-jolt,
     .es-pulse {
       animation: none;
-    }
-    .es-shimmer {
-      color: var(--muted-foreground);
-      background-image: none;
     }
   }
 }

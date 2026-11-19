@@ -9,26 +9,23 @@ import {
   useArtFrame,
   type Frame,
 } from "@/components/empty-states/engine"
-import {
-  EMPTY_STATES,
-  type ArtProps,
-  type EmptyStateType,
-} from "@/components/empty-states/states"
-import { cn } from "@/lib/utils"
+import type { ArtProps, EmptyStateType } from "@/components/empty-states/states"
+import { useStyleTuning } from "@/components/empty-states/tuning"
 
 /**
- * Signal: the dot matrix and shimmering status line of an AI tool waiting on
- * a reply, used for every state.
+ * Signal: the dot matrix of an AI tool waiting on a reply, used for every
+ * state.
  *
- * An 11 by 11 grid of dots, each with its own brightness easing toward what
+ * A square grid of dots (11 a side by default), each with its own brightness easing toward what
  * the state's pattern asks of it. Glyphs are 7 by 7 bitmaps in the middle;
  * the waiting state is a turning spiral over the whole disc. The cursor is a
  * small torch: dots near it come up as it passes.
  */
 
-const GRID = 11
-const HALF = (GRID - 1) / 2
 const LEVELS = 10
+
+/** Matrix tiles draw a smaller pitch. */
+const SMALL = 0.7
 
 /** 7x7 glyphs, centred on the grid. `#` is lit. */
 const GLYPHS: Partial<Record<EmptyStateType, string[]>> = {
@@ -77,10 +74,19 @@ function lit(state: EmptyStateType, x: number, y: number) {
   return row !== undefined && row[x + 3] === "#"
 }
 
-/** Brightness 0..1 for the dot at grid offset (x, y) from the centre. */
-function pattern(state: EmptyStateType, x: number, y: number, t: number) {
+/**
+ * Brightness 0..1 for the dot at grid offset (x, y) from the centre. `half`
+ * is the grid's reach from centre to edge; `floor` is an unlit cell.
+ */
+function pattern(
+  state: EmptyStateType,
+  x: number,
+  y: number,
+  t: number,
+  half: number,
+  BACKGROUND: number
+) {
   const r = Math.hypot(x, y)
-  const BACKGROUND = 0.06
 
   switch (state) {
     // The plus, with a ripple running out along its arms.
@@ -120,7 +126,7 @@ function pattern(state: EmptyStateType, x: number, y: number, t: number) {
 
     // Two spiral arms turning over the disc, the shape of waiting.
     case "working": {
-      if (r > HALF + 0.3) return BACKGROUND * 0.5
+      if (r > half + 0.3) return BACKGROUND * 0.5
       const angle = Math.atan2(y, x)
       const phase = (angle / (Math.PI * 2)) * 2 + r * 0.16 - t * 0.9
       const arm = phase - Math.floor(phase)
@@ -131,79 +137,78 @@ function pattern(state: EmptyStateType, x: number, y: number, t: number) {
 
 export function SignalArt({ state, size = "lg" }: ArtProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const tuning = useStyleTuning("signal")
   const dots = useRef<Float32Array | null>(null)
 
-  useArtFrame(
-    canvasRef,
-    (frame: Frame) => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const prepared = prepareCanvas(canvas, frame.width, frame.height)
-      if (!prepared) return
-      const { context, ink } = prepared
+  useArtFrame(canvasRef, (frame: Frame) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const prepared = prepareCanvas(canvas, frame.width, frame.height)
+    if (!prepared) return
+    const { context, ink } = prepared
 
-      if (!dots.current) dots.current = new Float32Array(GRID * GRID)
-      const brightness = dots.current
-      const fade = follow(frame, 10)
+    // Odd, so there is a centre cell for the glyphs to sit on.
+    const grid = Math.max(9, Math.round(tuning.grid) | 1)
+    const half = (grid - 1) / 2
+    if (!dots.current || dots.current.length !== grid * grid) {
+      dots.current = new Float32Array(grid * grid)
+    }
+    const brightness = dots.current
+    const fade = follow(frame, tuning.fade)
+    const t = frame.t * tuning.tempo
 
-      const pitch = Math.min(
-        size === "sm" ? 7 : 10,
-        (Math.min(frame.width, frame.height) * 0.92) / GRID
-      )
-      const originX = frame.width / 2 - HALF * pitch
-      const originY = frame.height / 2 - HALF * pitch
-      const torch = pitch * 1.8
-      const paths = Array.from({ length: LEVELS }, () => new Path2D())
+    const pitch = Math.min(
+      tuning.pitch * (size === "sm" ? SMALL : 1),
+      (Math.min(frame.width, frame.height) * 0.92) / grid
+    )
+    const originX = frame.width / 2 - half * pitch
+    const originY = frame.height / 2 - half * pitch
+    const torch = pitch * tuning.torch
+    const paths = Array.from({ length: LEVELS }, () => new Path2D())
 
-      for (let j = 0; j < GRID; j++) {
-        for (let i = 0; i < GRID; i++) {
-          const index = j * GRID + i
-          const px = originX + i * pitch
-          const py = originY + j * pitch
-          let target = pattern(state, i - HALF, j - HALF, frame.t)
+    for (let j = 0; j < grid; j++) {
+      for (let i = 0; i < grid; i++) {
+        const index = j * grid + i
+        const px = originX + i * pitch
+        const py = originY + j * pitch
+        let target = pattern(state, i - half, j - half, t, half, tuning.floor)
 
-          if (frame.pointer.inside) {
-            const dx = px - frame.pointer.x
-            const dy = py - frame.pointer.y
-            target += 0.6 * Math.exp(-(dx * dx + dy * dy) / (2 * torch * torch))
-          }
+        if (tuning.cursor && frame.pointer.inside) {
+          const dx = px - frame.pointer.x
+          const dy = py - frame.pointer.y
+          target +=
+            tuning.torchInk *
+            Math.exp(-(dx * dx + dy * dy) / (2 * torch * torch))
+        }
 
-          brightness[index] += (target - brightness[index]) * fade
-          const value = Math.min(Math.max(brightness[index], 0), 1)
-          const level = Math.min(LEVELS - 1, Math.floor(value * LEVELS))
-          const radius = pitch * (0.14 + 0.16 * value)
-          paths[level].moveTo(px + radius, py)
-          paths[level].arc(px, py, radius, 0, Math.PI * 2)
+        brightness[index] += (target - brightness[index]) * fade
+        const value = Math.min(Math.max(brightness[index], 0), 1)
+        const level = Math.min(LEVELS - 1, Math.floor(value * LEVELS))
+        const radius = pitch * (tuning.size + tuning.grow * value)
+        const path = paths[level]
+        if (tuning.cell === "square") {
+          path.roundRect(
+            px - radius,
+            py - radius,
+            radius * 2,
+            radius * 2,
+            radius * tuning.corner
+          )
+        } else {
+          path.moveTo(px + radius, py)
+          path.arc(px, py, radius, 0, Math.PI * 2)
         }
       }
+    }
 
-      context.fillStyle = ink
-      paths.forEach((path, level) => {
-        context.globalAlpha = 0.1 + 0.9 * ((level + 0.5) / LEVELS)
-        context.fill(path)
-      })
-      context.globalAlpha = 1
-    },
-    state
-  )
+    context.fillStyle = ink
+    paths.forEach((path, level) => {
+      context.globalAlpha =
+        tuning.minAlpha + (1 - tuning.minAlpha) * ((level + 0.5) / LEVELS)
+      context.fill(path)
+    })
+    context.globalAlpha = 1
+  })
 
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-      <div className="relative w-full flex-1">
-        <canvas ref={canvasRef} className="absolute inset-0 size-full" />
-      </div>
-      {/* The status line, shimmering only while there is something to wait
-          for. Keyed, so a new state's words arrive rather than swap. */}
-      <span
-        key={state}
-        className={cn(
-          "es-swap shrink-0 font-medium whitespace-nowrap text-muted-foreground",
-          size === "sm" ? "text-[11px] leading-4" : "text-xs leading-5",
-          state === "working" && "es-shimmer"
-        )}
-      >
-        {EMPTY_STATES[state].status}
-      </span>
-    </div>
-  )
+  return <canvas ref={canvasRef} className="absolute inset-0 size-full" />
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono, Lora } from "next/font/google"
 
 import "./globals.css"
+import { DevDials } from "@/components/dev/dials-gate"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
@@ -53,6 +54,8 @@ export default function RootLayout({
         */}
         <ThemeProvider forcedTheme="light" enableSystem={false}>
           {children}
+          {/* Local dev only; renders nothing in any build. See dials-gate.tsx. */}
+          <DevDials />
         </ThemeProvider>
       </body>
     </html>

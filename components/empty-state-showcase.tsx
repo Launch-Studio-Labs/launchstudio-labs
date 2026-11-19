@@ -39,7 +39,7 @@ function Glossary({
 
 /**
  * An exploration, not a finished component: six states every product meets,
- * each drawn in five directions, so one can be picked and packaged. The page
+ * each drawn in four directions, so one can be picked and packaged. The page
  * opens on one state at full size, then lays out the whole set.
  */
 export function EmptyStateShowcase() {
@@ -59,7 +59,7 @@ export function EmptyStateShowcase() {
         <p>
           This is an exploration:{" "}
           <strong className="font-medium text-foreground">
-            six common empty states, each drawn in five directions
+            six common empty states, each drawn in four directions
           </strong>
           . All black and white, and all of them move, on their own or under the
           cursor. One direction gets picked and packaged.
@@ -75,7 +75,7 @@ export function EmptyStateShowcase() {
           Every state in every style.
         </strong>{" "}
         Read across a row to see if a style holds together, and down a column to
-        compare five takes on the same moment. Hover a tile to see it react.
+        compare four takes on the same moment. Hover a tile to see it react.
       </p>
 
       <EmptyStateMatrixDemo
