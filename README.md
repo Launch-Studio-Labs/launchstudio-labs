@@ -24,8 +24,9 @@ import { Button } from "@/components/ui/button";
 
 A normal text input or textarea with a microphone in its corner — the
 layout of the Launch Studio portal's voice answers. People type as usual;
-pressing the mic records (Voice Glow along the field, level meter, timer and
-mic picker underneath), and the transcript is written into the same field.
+pressing the mic records (Voice Glow along the field, "Listening", the timer
+and the mic picker underneath), and the transcript is written into the same
+field.
 Afterwards the corner button resets the answer with a confirm, a recap player
 sits under the field, and a line inside the field lets people stop their
 recordings being sent. Docs and playground:
@@ -40,16 +41,25 @@ the bare demo).
 </VoiceInput>
 ```
 
-**Add it with the skill (default).** `skills/voice-input/SKILL.md` makes a
-coding agent scan your repo, send you a short plan (registry or manual
-install, which fields, transcription, recordings and privacy, env vars) and
-wait for your OK — then install the component and implement the frontend and
-backend. Nothing changes until you approve.
+**Add it with a prompt (default).** The docs page has a **Copy prompt**
+button. Paste the prompt into a coding agent: it points the agent at the
+skill (`/skills/voice-input/SKILL.md`) and the registry item
+(`/r/voice-input.json`), and the agent scans your repo, sends you a short
+plan (registry or manual install, which fields, transcription, recordings
+and privacy, env vars) and waits for your OK — then installs the component
+and implements the frontend and backend. Nothing changes until you approve.
 
-```bash
-npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/voice-input
-# or download https://labs.launchstudio.space/skills/voice-input/SKILL.md into your agent's skills folder
+```text
+Add the Voice Input component from Launch Studio Labs to my app.
+
+Skill (follow it): https://labs.launchstudio.space/skills/voice-input/SKILL.md
+Component (shadcn registry item): https://labs.launchstudio.space/r/voice-input.json
+
+Scan my repo first, then send me a short bullet plan and wait for my OK before you change anything. Once I approve, implement it end to end: frontend and backend.
 ```
+
+The page builds the URLs from the host it is served on, so a pull-request
+preview copies that preview's skill and registry URLs.
 
 **Or install it yourself** through the registry:
 
@@ -63,11 +73,14 @@ Or by hand: `npm install voice-glow @phosphor-icons/react`,
 `components/ui/voice-input.tsx`, `components/ui/voice-waveform.tsx`,
 `hooks/use-voice-recorder.ts` and `lib/voice-recording.ts`.
 
-Optional looks: `fieldEffect` and `meter` take the same styles (`glow`,
-`level`, `bars`, `wave`, `dots`) for the voice inside the field and under it;
-`buttonRadius` is `"auto"` (concentric with the field), `"full"` or px.
+Optional looks: `fieldEffect` draws the voice inside the field (`glow`,
+`level`, `bars`, `wave`, `dots`), each with its own motion while
+transcribing; `buttonRadius` is `"auto"` (concentric with the field),
+`"full"` or px.
 
-The skill's `references/` hold the details for doing it by hand too:
+To keep the skill in your agent instead:
+`npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/voice-input`.
+Its `references/` hold the details for doing it by hand too:
 `install.md`, `component.md` (wiring, props, permissions), `server.md`
 (OpenAI transcription route, storage, deleting audio, "don't send
 recordings" end to end) and `scan.md`.

@@ -41,8 +41,14 @@ import {
  */
 export type VoiceWaveformStyle = "bars" | "wave" | "dots"
 
-const BAR = { bars: 3, dots: 3 } as const
-const GAP = { bars: 2, dots: 3 } as const
+/**
+ * What the live canvas can draw: the waveform styles, plus `level` — a row of
+ * bars across the whole lane that all rise and fall with the voice.
+ */
+export type LiveWaveformStyle = VoiceWaveformStyle | "level"
+
+const BAR = { bars: 3, dots: 3, level: 4 } as const
+const GAP = { bars: 2, dots: 3, level: 4 } as const
 /** A new bar enters this often, so the history scrolls at a steady pace. */
 const BAR_EVERY_MS = 70
 
@@ -52,7 +58,13 @@ export interface LiveWaveformProps extends ComponentProps<"div"> {
   getLevel: () => number
   /** Hold the picture where it is (a paused take). */
   frozen?: boolean
-  waveform?: VoiceWaveformStyle
+  /**
+   * The take is being transcribed: no voice any more, so each style plays
+   * its own "working" motion — a pulse through the bars and dots, a slow
+   * travelling line, a sweep across the level bars.
+   */
+  processing?: boolean
+  waveform?: LiveWaveformStyle
 }
 
 /**
@@ -63,15 +75,20 @@ export function LiveWaveform({
   analyser,
   getLevel,
   frozen = false,
+  processing = false,
   waveform = "bars",
   className,
   ...props
 }: LiveWaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const frozenRef = useRef(frozen)
+  const processingRef = useRef(processing)
+  /** Kept across re-subscriptions, so the picture carries on into processing. */
+  const historyRef = useRef<number[]>([])
   useEffect(() => {
     frozenRef.current = frozen
-  }, [frozen])
+    processingRef.current = processing
+  }, [frozen, processing])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -96,8 +113,10 @@ export function LiveWaveform({
     observer.observe(canvas)
 
     const samples = analyser ? new Float32Array(analyser.fftSize) : null
-    const history: number[] = []
+    const history = historyRef.current
     let lastPush = 0
+    /** 0 while listening, eases to 1 while processing, so the switch blends. */
+    let work = processingRef.current ? 1 : 0
     let raf = 0
     let frame = 0
 
@@ -111,12 +130,27 @@ export function LiveWaveform({
       context.fillStyle = color
       context.strokeStyle = color
       const mid = height / 2
+      const t = now / 1000
+      work += ((processingRef.current ? 1 : 0) - work) * 0.08
+      const working = work > 0.02
 
       if (waveform === "wave") {
         context.lineWidth = 1.5
         context.lineJoin = "round"
         context.beginPath()
-        if (analyser && samples) {
+        if (working) {
+          // A slow, travelling double sine that breathes: thinking, not hearing.
+          const amp = mid * 0.55 * work * (0.75 + 0.25 * Math.sin(t * 1.6))
+          for (let x = 0; x <= width; x++) {
+            const edge = Math.sin((x / width) * Math.PI)
+            const phase = (x / Math.max(1, width)) * Math.PI * 4 - t * 3.2
+            const value =
+              Math.sin(phase) * 0.7 + Math.sin(phase * 0.5 + t) * 0.3
+            const y = mid + value * amp * edge
+            if (x === 0) context.moveTo(x, y)
+            else context.lineTo(x, y)
+          }
+        } else if (analyser && samples) {
           analyser.getFloatTimeDomainData(samples)
           // Boost so a normal voice fills the lane; auto gain keeps it level.
           const gain = Math.min(6, 0.9 / Math.max(0.05, peakAbs(samples)))
@@ -140,9 +174,44 @@ export function LiveWaveform({
       const bar = BAR[waveform]
       const gap = GAP[waveform]
       const count = Math.max(1, Math.floor((width + gap) / (bar + gap)))
+
+      if (waveform === "level") {
+        // Every bar follows the one level, shaped by a gentle bell and a fixed
+        // ripple so the row reads as a voice, not a block. Processing sweeps
+        // a crest from left to right and back.
+        const level = frozenRef.current ? 0 : getLevel()
+        const offset = (width - (count * (bar + gap) - gap)) / 2
+        for (let i = 0; i < count; i++) {
+          const u = (i + 0.5) / count
+          const bell = 0.45 + 0.55 * Math.sin(u * Math.PI)
+          const ripple = 0.8 + 0.2 * Math.sin(i * 1.7) * Math.cos(i * 0.6)
+          const listening = level * bell * ripple * 1.3
+          const sweep = Math.cos(u * Math.PI * 2 - Math.sin(t * 1.4) * Math.PI)
+          const thinking = 0.18 + 0.42 * Math.max(0, sweep) ** 3
+          const value = Math.min(1, listening * (1 - work) + thinking * work)
+          const h = Math.max(bar, (0.12 + 0.88 * value) * height)
+          roundRect(
+            context,
+            offset + i * (bar + gap),
+            mid - h / 2,
+            bar,
+            h,
+            bar / 2
+          )
+        }
+        return
+      }
+
       if (now - lastPush >= BAR_EVERY_MS) {
         lastPush = now
-        history.push(getLevel())
+        // Processing feeds the history a rolling pulse, so it keeps moving
+        // the way it did while listening.
+        const pulse =
+          0.16 +
+          0.5 *
+            (0.5 + 0.5 * Math.sin(t * 5)) *
+            (0.55 + 0.45 * Math.sin(t * 1.3))
+        history.push(getLevel() * (1 - work) + pulse * work)
         if (history.length > count) history.splice(0, history.length - count)
       }
       for (let i = 0; i < count; i++) {

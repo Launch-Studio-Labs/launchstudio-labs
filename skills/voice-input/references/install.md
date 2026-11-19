@@ -67,7 +67,7 @@ colour:
 
 ```css
 :root {
-  --voice-accent: var(--foreground);            /* stop button, level meter */
+  --voice-accent: var(--foreground);            /* stop button, pulse ring */
   --voice-accent-foreground: var(--background);
   --voice-wave: var(--foreground);              /* waveforms, played part */
   --voice-wave-rest: color-mix(in oklab, var(--muted-foreground) 45%, transparent);

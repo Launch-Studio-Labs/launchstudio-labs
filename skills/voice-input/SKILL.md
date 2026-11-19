@@ -32,9 +32,14 @@ backend, storage and privacy handling — in three phases:
 > the plan with changes they ask for). If they change something material
 > (fields, storage, provider), send the revised plan and wait again.
 
+**If the user pasted the Labs prompt**, it gives you this skill's URL and the
+registry item's URL. Use that registry URL for the install, and fetch the
+references from the same origin as the skill (a pull-request preview serves
+both). Without those URLs, use `https://labs.launchstudio.space`.
+
 References — read the one you need, when you need it. They sit next to this
 file; if the folder is missing, fetch them from
-`https://labs.launchstudio.space/skills/voice-input/references/<name>.md`:
+`<origin>/skills/voice-input/references/<name>.md`:
 
 - `references/scan.md` — what to look for, and how to decide registry vs manual
 - `references/install.md` — the registry and manual install steps
@@ -125,7 +130,7 @@ migration conflicts, a dependency won't install), stop and ask instead of
 improvising.
 
 1. **Install** by the chosen path (`references/install.md`). Registry:
-   `npx shadcn@latest add https://labs.launchstudio.space/r/voice-input.json`
+   `npx shadcn@latest add <registry URL from the prompt, or https://labs.launchstudio.space/r/voice-input.json>`
    with the app's package manager. Manual: packages, primitives, the four
    files, imports fixed to the app's aliases. Radix-flavoured shadcn needs
    the small edits listed there.
@@ -159,8 +164,8 @@ improvising.
   build a standalone recorder, pill or panel that replaces the field, and
   don't change the field's layout beyond the mic in its corner.
 - **Defaults stay defaults.** Neutral colours, mic in the corner, Voice Glow
-  along the field, level meter under it. Change the look only if the user
-  asks (`references/component.md`).
+  along the field, "Listening" and the clock under it. Change the look only
+  if the user asks (`references/component.md`).
 - **Withheld audio never outlives the request.** `sendRecording: false`
   means the server transcribes and discards: no storage, no logs, no
   analytics. Stored audio is deleted on reset, on a new take, and on

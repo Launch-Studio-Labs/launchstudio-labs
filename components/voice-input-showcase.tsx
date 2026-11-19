@@ -54,6 +54,22 @@ const SKILL_COMMAND =
 const SKILL_FILE = "/skills/voice-input/SKILL.md"
 const SKILL_INSTALL = "/skills/voice-input/references/install.md"
 
+/**
+ * What the Copy prompt button puts on the clipboard. Short on purpose: the
+ * skill carries the workflow and the details, so the prompt only says what to
+ * add, where the skill and the component live, and that nothing happens
+ * without an OK. The origin is the host the page is served from, so a preview
+ * copies URLs that exist on that preview.
+ */
+function buildPrompt(origin: string) {
+  return `Add the Voice Input component from Launch Studio Labs to my app.
+
+Skill (follow it): ${origin}/skills/voice-input/SKILL.md
+Component (shadcn registry item): ${origin}/r/voice-input.json
+
+Scan my repo first, then send me a short bullet plan and wait for my OK before you change anything. Once I approve, implement it end to end: frontend and backend.`
+}
+
 const SKILL_STEPS = [
   {
     title: "Scans your repo",
@@ -101,6 +117,7 @@ function useRegistryOrigin() {
 export function VoiceInputShowcase() {
   const origin = useRegistryOrigin()
   const registryCommand = `npx shadcn@latest add ${origin}/r/voice-input.json`
+  const prompt = buildPrompt(origin)
 
   return (
     <>
@@ -114,65 +131,49 @@ export function VoiceInputShowcase() {
           plays it back, and a line inside the field lets people decide whether
           their recording is sent at all.
         </p>
+        <p>
+          Try it below. Transcription is a stand-in here, so it works without an
+          API key; the log shows what your app would receive.
+        </p>
       </Prose>
 
+      <VoiceInputDemo className="labs-enter labs-enter-delay-3" />
+
+      <Separator className="labs-enter labs-enter-delay-3" />
+
       <Section
-        title="Add it with the skill"
-        className="labs-enter labs-enter-delay-2"
+        title="Add it with a prompt"
+        className="labs-enter labs-enter-delay-3"
       >
         <Prose>
           <p>
-            Give the skill to your coding agent and ask it to add voice input.
-            It installs the component <strong>and</strong> wires it into your
-            app, backend included.
+            Copy this into your coding agent. It points the agent at the Voice
+            Input skill and the component, and the agent does the rest.
           </p>
         </Prose>
-        <ol className="flex flex-col gap-4">
-          {SKILL_STEPS.map((step, index) => (
-            <li key={step.title} className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums">
-                {index + 1}
-              </span>
-              <div className="flex min-w-0 flex-col gap-1 pt-0.5">
-                <p className="text-sm font-medium">{step.title}</p>
-                <p className="text-sm leading-normal text-body">{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <PromptCard prompt={prompt} />
+        <div className="flex flex-col gap-4">
+          <p className="text-sm font-medium">What happens after you paste it</p>
+          <ol className="flex flex-col gap-4">
+            {SKILL_STEPS.map((step, index) => (
+              <li key={step.title} className="flex gap-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums">
+                  {index + 1}
+                </span>
+                <div className="flex min-w-0 flex-col gap-1 pt-0.5">
+                  <p className="text-sm font-medium">{step.title}</p>
+                  <p className="text-sm leading-normal text-body">
+                    {step.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
         <p className="rounded-lg bg-muted px-4 py-3 text-sm font-medium">
           Nothing changes in your repo until you say OK.
         </p>
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">Get the skill</p>
-          <Command text={SKILL_COMMAND} />
-          <Prose>
-            <p>
-              Or{" "}
-              <a href={SKILL_FILE} download="SKILL.md" className={LINK}>
-                download SKILL.md
-              </a>{" "}
-              and put it in your agent&apos;s skills folder as{" "}
-              <Code>voice-input/SKILL.md</Code> (for Claude Code,{" "}
-              <Code>.claude/skills/</Code>). Its references load from this site
-              when they&apos;re not next to it. Then ask:{" "}
-              <em>&ldquo;Add voice input to the feedback form.&rdquo;</em>
-            </p>
-          </Prose>
-        </div>
       </Section>
-
-      <Section title="Try it" className="labs-enter labs-enter-delay-3">
-        <Prose>
-          <p>
-            Transcription is a stand-in here, so it works without an API key;
-            the log shows what your app would receive.
-          </p>
-        </Prose>
-        <VoiceInputDemo />
-      </Section>
-
-      <Separator className="labs-enter labs-enter-delay-3" />
 
       <Section
         title="Install it yourself"
@@ -180,8 +181,8 @@ export function VoiceInputShowcase() {
       >
         <Prose>
           <p>
-            Optional — the skill does this for you. If you&apos;d rather wire it
-            by hand, use the shadcn registry when your app has a{" "}
+            Optional — the prompt does all of this for you. If you&apos;d rather
+            wire it by hand, use the shadcn registry when your app has a{" "}
             <Code>components.json</Code>, and copy the files when it
             doesn&apos;t.
           </p>
@@ -245,6 +246,19 @@ export function VoiceInputShowcase() {
             </Step>
           </TabsContent>
         </Tabs>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Or keep the skill in your agent</p>
+          <Command text={SKILL_COMMAND} />
+          <Prose>
+            <p>
+              Installs it into your project&apos;s agent skills, or{" "}
+              <a href={SKILL_FILE} download="SKILL.md" className={LINK}>
+                download SKILL.md
+              </a>
+              . Then ask your agent to add voice input.
+            </p>
+          </Prose>
+        </div>
       </Section>
 
       <Section title="Usage" className="labs-enter labs-enter-delay-3">
@@ -258,11 +272,12 @@ export function VoiceInputShowcase() {
             <Code>insert=&quot;append&quot;</Code> follows it.
           </p>
           <p>
-            The voice is drawn in two places, from one set of styles —{" "}
-            <Code>glow</Code>, <Code>level</Code>, <Code>bars</Code>,{" "}
-            <Code>wave</Code> and <Code>dots</Code>: <Code>fieldEffect</Code>{" "}
-            inside the field (Voice Glow by default) and <Code>meter</Code> in
-            the line under it (the three level bars by default). The mic&apos;s
+            <Code>fieldEffect</Code> picks how the voice is drawn inside the
+            field: <Code>glow</Code> (Voice Glow, the default),{" "}
+            <Code>level</Code>, <Code>bars</Code>, <Code>wave</Code> or{" "}
+            <Code>dots</Code>. Each keeps moving in its own way while the take
+            is transcribed, and on a single-line field it fades out behind the
+            text. The mic&apos;s
             corners are concentric with the field&apos;s:{" "}
             <Code>buttonRadius=&quot;auto&quot;</Code> takes the field&apos;s
             radius minus the button&apos;s inset, or pass a number or{" "}
@@ -320,6 +335,48 @@ export function VoiceInputShowcase() {
         </Prose>
       </Section>
     </>
+  )
+}
+
+/**
+ * The prompt, readable before it is copied, and one obvious button. Only the
+ * icon reacts to a copy — the label stays, so the button never changes size.
+ */
+function PromptCard({ prompt }: { prompt: string }) {
+  const [copied, setCopied] = useState(false)
+
+  function copy() {
+    void navigator.clipboard.writeText(prompt)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1600)
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-muted p-3">
+      <pre className="px-2 pt-1 font-mono text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
+        {prompt}
+      </pre>
+      <Button size="lg" onClick={copy} className="self-start">
+        <span className="relative size-4">
+          <CopyIcon
+            className={cn(
+              "absolute inset-0 transition-[opacity,scale,filter] duration-200 ease-out",
+              copied ? "scale-50 opacity-0 blur-[2px]" : "opacity-100"
+            )}
+          />
+          <CheckIcon
+            className={cn(
+              "absolute inset-0 transition-[opacity,scale,filter] duration-200 ease-out",
+              copied ? "opacity-100" : "scale-50 opacity-0 blur-[2px]"
+            )}
+          />
+        </span>
+        Copy prompt
+      </Button>
+      <span className="sr-only" aria-live="polite">
+        {copied ? "Prompt copied" : ""}
+      </span>
+    </div>
   )
 }
 

@@ -2,8 +2,8 @@
 
 A normal text field with a mic in its corner. Idle: the field and a small
 mic button top-right, its corners concentric with the field's. Recording:
-stop button, Voice Glow along the field, a level meter + "Listening" + clock
-+ mic picker under it. Processing: spinner, "Writing your answer…". Done:
+stop button, Voice Glow along the field, "Listening" + clock + mic picker
+under it. Processing: spinner, "Writing your answer…". Done:
 the transcript is in the field, the corner button resets (with a confirm), a
 recap player sits under the field, and a line inside the field says whether
 recordings are sent, with a link to turn that off.
@@ -98,12 +98,11 @@ renders one (shadcn field style: `rounded-lg`, `bg-input/50`, `h-9` /
 | `sendRecording` / `defaultSendRecording` / `onSendRecordingChange` | `true` | The privacy choice. |
 | `disabled` | `false` | Disables the mic only. |
 | `submit` | `"auto"` | `"manual"` holds a take under the field with playback, Discard and Send. |
-| `allowPause` | `false` | Pause / Resume in the meter line. |
+| `allowPause` | `false` | Pause / Resume in the line under the field. |
 | `autoGainControl` | `true` | Leave on: quiet mics otherwise come back as empty transcripts. |
 | `maxDurationMs` / `minDurationMs` | 5 min / 700ms | Match `maxDurationMs` to the server's body limit. |
 | `showMicPicker` `showTimer` `showPlayback` `showRecordingToggle` `confirmReset` | `true` | Turn pieces off. |
-| `fieldEffect` | `"glow"` | Voice drawn inside the field: `"glow"` (Voice Glow), `"level"`, `"bars"`, `"wave"`, `"dots"`, `"none"`. |
-| `meter` | `"level"` | Voice drawn in the line under the field: `"level"` (three bars), `"glow"` (small Voice Glow pill), `"bars"`, `"wave"`, `"dots"`, `"none"`. |
+| `fieldEffect` | `"glow"` | Voice drawn inside the field: `"glow"` (Voice Glow), `"level"` (bars across the full width), `"bars"`, `"wave"`, `"dots"`, `"none"`. Each has its own motion while the take is transcribed; on a single-line field the non-glow effects fade out behind the text. |
 | `playerWaveform` | `"bars"` | Recap player: `"bars"` / `"dots"`. |
 | `radius` | the field's | Built-in field and glow radius, px. |
 | `buttonRadius` | `"auto"` | Mic corners. `"auto"` = `max(0, fieldRadius − inset)`, measured (concentric); `"full"` = circle; a number = px. |

@@ -4,7 +4,7 @@
  * Voice Input — a normal text field with a microphone in its corner.
  *
  * The field stays a field: people type into it as usual. The mic is the
- * extra. Recording plays Voice Glow along the field and shows a level meter,
+ * extra. Recording plays Voice Glow along the field and shows "Listening",
  * the clock and the microphone under it; stopping sends the take for
  * transcription and writes the text back into the same field. Once there is a
  * recording, the corner button turns into a reset (with a confirm), a recap
@@ -96,14 +96,14 @@ export type VoiceSubmitMode = "auto" | "manual"
 export type VoiceInsertMode = "replace" | "append"
 
 /**
- * How the voice is drawn — one family, used both inside the field
- * (`fieldEffect`) and in the meter under it (`meter`).
- * - `glow`: Voice Glow, the soft light that rises with the voice
- * - `level`: three level bars (the portal's meter)
- * - `bars` / `wave` / `dots`: a live waveform
+ * How the voice is drawn inside the field while recording. Each one keeps
+ * moving in its own way while the take is transcribed.
+ * - `glow`: Voice Glow along the field (the portal's)
+ * - `level`: a row of bars across the field that rise with the voice
+ * - `bars` / `wave` / `dots`: a live waveform along the bottom of the field
  * - `none`: nothing
  */
-export type VoiceVisual = "glow" | "level" | VoiceWaveformStyle | "none"
+export type VoiceFieldEffect = "glow" | "level" | VoiceWaveformStyle | "none"
 
 /**
  * The mic button's corner radius.
@@ -379,7 +379,7 @@ export interface VoiceInputProps extends Omit<
   onSendRecordingChange?: (send: boolean) => void
 
   // Recording
-  /** Pause/resume in the meter row. @default false */
+  /** Pause/resume in the line under the field. @default false */
   allowPause?: boolean
   /** Browser automatic gain control. @default true */
   autoGainControl?: boolean
@@ -405,10 +405,11 @@ export interface VoiceInputProps extends Omit<
   confirmReset?: boolean
 
   // Look
-  /** The voice drawn inside the field while recording. @default "glow" */
-  fieldEffect?: VoiceVisual
-  /** The voice drawn in the line under the field. @default "level" */
-  meter?: VoiceVisual
+  /**
+   * The voice drawn inside the field while recording, and its motion while
+   * the take is transcribed. @default "glow"
+   */
+  fieldEffect?: VoiceFieldEffect
   /** Waveform in the recap player. @default "bars" */
   playerWaveform?: VoiceWaveformStyle
   /** Corner radius of the field in px. Default: the field's own. */
@@ -460,7 +461,6 @@ export function VoiceInput({
   showRecordingToggle = true,
   confirmReset = true,
   fieldEffect = "glow",
-  meter = "level",
   playerWaveform = "bars",
   radius,
   buttonRadius = "auto",
@@ -555,17 +555,11 @@ export function VoiceInput({
     onActiveChangeRef.current?.(live)
   }, [live])
 
-  // The ring around the stop button and the meter bars breathe with the
-  // voice; written per frame, no renders.
+  // The ring around the stop button breathes with the voice; written per
+  // frame, no renders.
   useEffect(() => {
     if (!live) return
     let raf = 0
-    const shape = [0.7, 1, 0.82]
-    // Level bars can sit in the field, in the meter, or both.
-    const levelGroups = Array.from(
-      wrapperRef.current?.querySelectorAll<HTMLElement>("[data-voice-level]") ??
-        []
-    )
     const tick = () => {
       const level = paused ? 0 : getLevel()
       const ring = ringRef.current
@@ -578,20 +572,6 @@ export function VoiceInput({
           ring.style.opacity = String(0.12 + level * 0.22)
         }
       }
-      for (const group of levelGroups) {
-        const bars = group.children
-        for (let i = 0; i < bars.length; i++) {
-          const bar = bars[i] as HTMLElement
-          const value = Math.min(1, level * shape[i % 3] * 1.25)
-          if (reduced) {
-            bar.style.transform = "scaleY(1)"
-            bar.style.opacity = String(0.25 + value * 0.75)
-          } else {
-            bar.style.transform = `scaleY(${0.25 + value * 0.75})`
-            bar.style.opacity = "1"
-          }
-        }
-      }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -600,7 +580,35 @@ export function VoiceInput({
       cancelAnimationFrame(raf)
       if (ring) ring.style.opacity = "0"
     }
-  }, [live, paused, reduced, getLevel, meter, fieldEffect])
+  }, [live, paused, reduced, getLevel])
+
+  // On a single-line field the effect shares the row with the text, so it
+  // fades out where the text (or the placeholder) ends. Measured with the
+  // field's own font, again as the text changes.
+  const showFieldVisual =
+    (live || processing) && fieldEffect !== "glow" && fieldEffect !== "none"
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    const input = wrapper?.querySelector<HTMLElement>("[data-slot=input]")
+    if (!showFieldVisual || !wrapper || !(input instanceof HTMLInputElement)) {
+      return
+    }
+    const context = document.createElement("canvas").getContext("2d")
+    const measure = () => {
+      const style = getComputedStyle(input)
+      let width = 0
+      if (context) {
+        context.font = style.font
+        width = context.measureText(input.value || input.placeholder).width
+      }
+      const start = parseFloat(style.paddingLeft) || 0
+      const end = Math.min(input.clientWidth, start + width)
+      wrapper.style.setProperty("--voice-text-end", `${Math.round(end)}px`)
+    }
+    measure()
+    input.addEventListener("input", measure)
+    return () => input.removeEventListener("input", measure)
+  }, [showFieldVisual, text])
 
   // The button's corners follow the field's: concentric by default, so the
   // gap between them is even all the way round. Measured, not assumed — the
@@ -774,7 +782,7 @@ export function VoiceInput({
       if (controller.signal.aborted) return
       const code =
         error instanceof VoiceTranscriptionError ? error.code : "failed"
-      // An empty transcript from a take the meter saw as flat silence is a
+      // An empty transcript from a take the analyser heard as flat silence is a
       // microphone problem, not a mumbling one.
       setSendProblem(code === "empty" && take.silent ? "silent" : code)
       if (code === "failed") setLastTake(take)
@@ -964,7 +972,7 @@ export function VoiceInput({
     </div>
   ) : null
 
-  /** Shared by the field glow and the glow meter. */
+  /** Voice Glow's look, from the palette props. */
   const glowProps = {
     theme,
     colorVariant: glowVariant,
@@ -1026,12 +1034,13 @@ export function VoiceInput({
       >
         {field}
         {sendNote}
-        {live && fieldEffect !== "glow" && fieldEffect !== "none" && (
+        {showFieldVisual && (
           <FieldVisual
             visual={fieldEffect}
             analyser={recorder.analyser}
             getLevel={getLevel}
             paused={paused}
+            processing={processing}
           />
         )}
       </VoiceBeam>
@@ -1107,16 +1116,6 @@ export function VoiceInput({
 
       {live && (
         <div className="mt-2 flex min-h-6 items-center gap-2 text-xs font-medium text-muted-foreground">
-          {meter !== "none" && (
-            <MeterVisual
-              visual={meter}
-              analyser={recorder.analyser}
-              getLevel={getLevel}
-              paused={paused}
-              stream={recording ? recorder.stream : null}
-              glow={glowProps}
-            />
-          )}
           <span
             className={cn(
               "shrink-0",
@@ -1232,120 +1231,53 @@ type VisualProps = {
   paused: boolean
 }
 
-function LevelBars({ className, bar }: { className?: string; bar: string }) {
-  return (
-    <span
-      data-voice-level
-      aria-hidden="true"
-      className={cn("flex items-center", className)}
-    >
-      {[0, 1, 2].map((index) => (
-        <span
-          key={index}
-          className={cn(
-            "h-full origin-center scale-y-25 rounded-full bg-[var(--voice-accent,var(--color-foreground))]",
-            bar
-          )}
-        />
-      ))}
-    </span>
-  )
-}
-
-/**
- * The meter in the line under the field. `glow` is a small Voice Glow pill —
- * the same light that plays along the field, at the size of a meter.
- */
-function MeterVisual({
-  visual,
-  analyser,
-  getLevel,
-  paused,
-  stream,
-  glow,
-}: VisualProps & {
-  visual: Exclude<VoiceVisual, "none">
-  stream: MediaStream | null
-  glow: Partial<ComponentProps<typeof VoiceBeam>>
-}) {
-  const dim = paused && "opacity-40"
-  if (visual === "level") {
-    return (
-      <LevelBars
-        className={cn("h-3 gap-[2px] transition-opacity", dim)}
-        bar="w-[3px]"
-      />
-    )
-  }
-  if (visual === "glow") {
-    return (
-      <VoiceBeam
-        {...glow}
-        stream={stream}
-        active
-        paused={paused}
-        type="pill"
-        borderRadius={9}
-        className="shrink-0"
-      >
-        <span
-          aria-hidden="true"
-          className="block h-[18px] w-20 rounded-[9px] bg-foreground/[0.04]"
-        />
-      </VoiceBeam>
-    )
-  }
-  return (
-    <LiveWaveform
-      analyser={analyser}
-      getLevel={getLevel}
-      frozen={paused}
-      waveform={visual}
-      className={cn(
-        "h-4 w-20 shrink-0 text-[var(--voice-wave,var(--color-foreground))]",
-        dim
-      )}
-    />
-  )
-}
-
 /**
  * The voice drawn inside the field when it isn't the glow: a band along the
- * bottom of the field, faint enough that typed text reads over it.
+ * bottom of the field, faint enough that typed text reads over it. It stays
+ * through processing, where each style plays its own "working" motion.
+ *
+ * On a single-line field it fades out behind the text (`--voice-text-end`,
+ * measured) and before the mic, so the placeholder, what's typed and the
+ * button never sit on top of it.
  */
 function FieldVisual({
   visual,
   analyser,
   getLevel,
   paused,
-}: VisualProps & { visual: "level" | VoiceWaveformStyle }) {
+  processing,
+}: VisualProps & {
+  visual: "level" | VoiceWaveformStyle
+  processing: boolean
+}) {
   return (
     <div
       aria-hidden="true"
       data-slot="voice-input-field-visual"
+      data-processing={processing || undefined}
       className={cn(
         "pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-full max-h-12 overflow-hidden rounded-b-[var(--voice-field-radius,0.5rem)] transition-opacity duration-200",
         "animate-in fade-in-0",
+        // Single line: clear of the text on the left, and of the mic on the right.
+        "group-has-[[data-slot=input]]/voice-field:[mask-image:linear-gradient(to_right,transparent_calc(var(--voice-text-end,0px)+4px),black_calc(var(--voice-text-end,0px)+40px),black_calc(100%-56px),transparent_calc(100%-40px))]",
         paused ? "opacity-40" : "opacity-100"
       )}
     >
-      {visual === "level" ? (
-        <LevelBars
-          className="absolute inset-x-0 bottom-1.5 mx-auto h-5 w-fit gap-[3px] opacity-35"
-          bar="w-1"
-        />
-      ) : (
-        <LiveWaveform
-          analyser={analyser}
-          getLevel={getLevel}
-          frozen={paused}
-          waveform={visual}
-          className={cn(
-            "absolute inset-x-3 inset-y-1.5 h-auto text-[var(--voice-wave,var(--color-foreground))]",
-            visual === "wave" ? "opacity-35" : "opacity-[0.16]"
-          )}
-        />
-      )}
+      <LiveWaveform
+        analyser={analyser}
+        getLevel={getLevel}
+        frozen={paused}
+        processing={processing}
+        waveform={visual}
+        className={cn(
+          "absolute inset-x-3 inset-y-1.5 h-auto text-[var(--voice-wave,var(--color-foreground))]",
+          visual === "wave"
+            ? "opacity-35"
+            : visual === "level"
+              ? "opacity-25"
+              : "opacity-[0.16]"
+        )}
+      />
     </div>
   )
 }

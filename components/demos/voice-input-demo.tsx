@@ -17,7 +17,7 @@ import {
   type VoiceInputProps,
   type VoiceSubmitMode,
   type VoiceTranscribe,
-  type VoiceVisual,
+  type VoiceFieldEffect,
 } from "@/components/ui/voice-input"
 import { cn } from "@/lib/utils"
 
@@ -33,8 +33,8 @@ const TONES: Record<
   colorful: { glow: "colorful", label: "Colorful" },
 }
 
-/** The voice styles, shared by the field and the meter. */
-const VISUALS: [Exclude<VoiceVisual, "none">, string][] = [
+/** How the voice is drawn inside the field. */
+const EFFECTS: [Exclude<VoiceFieldEffect, "none">, string][] = [
   ["glow", "Glow"],
   ["level", "Level"],
   ["bars", "Bars"],
@@ -77,8 +77,7 @@ type LogEntry = { id: number; text: string; tone?: "withheld" | "deleted" }
  */
 export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
   const [submit, setSubmit] = useState<VoiceSubmitMode>("auto")
-  const [fieldEffect, setFieldEffect] = useState<VoiceVisual>("glow")
-  const [meter, setMeter] = useState<VoiceVisual>("level")
+  const [fieldEffect, setFieldEffect] = useState<VoiceFieldEffect>("glow")
   const [tone, setTone] = useState<Tone>("neutral")
   const [radius, setRadius] = useState<number | null>(null)
   const [buttonRadius, setButtonRadius] = useState<number | "auto">("auto")
@@ -140,7 +139,6 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
     sendRecording,
     onSendRecordingChange: setSendRecording,
     fieldEffect,
-    meter,
     radius: radius ?? undefined,
     buttonRadius: buttonRadius === ROUND ? "full" : buttonRadius,
     glowVariant: toneStyle.glow,
@@ -195,13 +193,7 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
           label="In the field"
           value={fieldEffect}
           onChange={setFieldEffect}
-          options={VISUALS}
-        />
-        <Choice
-          label="Meter"
-          value={meter}
-          onChange={setMeter}
-          options={VISUALS}
+          options={EFFECTS}
         />
         <Choice
           label="Color"
