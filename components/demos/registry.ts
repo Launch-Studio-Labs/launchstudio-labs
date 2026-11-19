@@ -2,6 +2,7 @@ import type { ComponentType } from "react"
 
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
 import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
+import { EmptyStateMatrixDemo } from "@/components/demos/empty-state-matrix-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
 
 export type Demo = {
@@ -22,6 +23,11 @@ export const demos: Demo[] = [
     id: "empty-state",
     title: "Empty state",
     component: EmptyStateDemo,
+  },
+  {
+    id: "empty-state-matrix",
+    title: "Empty state matrix",
+    component: EmptyStateMatrixDemo,
   },
   {
     id: "width-and-leading",

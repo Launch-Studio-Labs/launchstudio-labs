@@ -6,6 +6,9 @@ export function generateStaticParams() {
   return demos.map((demo) => ({ slug: demo.id }))
 }
 
+/** Unknown slugs 404 at build time, which a static export requires. */
+export const dynamicParams = false
+
 export default async function Page({
   params,
 }: {
