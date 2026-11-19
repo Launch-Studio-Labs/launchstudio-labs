@@ -96,11 +96,23 @@ export type VoiceSubmitMode = "auto" | "manual"
 export type VoiceInsertMode = "replace" | "append"
 
 /**
- * The meter under the field while recording.
- * - `meter`: three level bars (the portal's)
- * - `bars` / `wave` / `dots`: a short live waveform instead
+ * How the voice is drawn — one family, used both inside the field
+ * (`fieldEffect`) and in the meter under it (`meter`).
+ * - `glow`: Voice Glow, the soft light that rises with the voice
+ * - `level`: three level bars (the portal's meter)
+ * - `bars` / `wave` / `dots`: a live waveform
+ * - `none`: nothing
  */
-export type VoiceMeterStyle = "meter" | VoiceWaveformStyle
+export type VoiceVisual = "glow" | "level" | VoiceWaveformStyle | "none"
+
+/**
+ * The mic button's corner radius.
+ * - `"auto"`: concentric with the field — the field's radius minus the
+ *   button's inset (`max(0, fieldRadius - inset)`)
+ * - `"full"`: a circle
+ * - a number: that radius, in px
+ */
+export type VoiceButtonRadius = "auto" | "full" | number
 
 /** What `onTranscribe` resolves with. */
 export interface VoiceTranscription {
@@ -382,8 +394,6 @@ export interface VoiceInputProps extends Omit<
 
   // Parts
   /** @default true */
-  showGlow?: boolean
-  /** @default true */
   showMicPicker?: boolean
   /** @default true */
   showTimer?: boolean
@@ -395,12 +405,16 @@ export interface VoiceInputProps extends Omit<
   confirmReset?: boolean
 
   // Look
-  /** @default "meter" */
-  meter?: VoiceMeterStyle
+  /** The voice drawn inside the field while recording. @default "glow" */
+  fieldEffect?: VoiceVisual
+  /** The voice drawn in the line under the field. @default "level" */
+  meter?: VoiceVisual
   /** Waveform in the recap player. @default "bars" */
   playerWaveform?: VoiceWaveformStyle
   /** Corner radius of the field in px. Default: the field's own. */
   radius?: number
+  /** The mic button's corner radius. @default "auto" (concentric) */
+  buttonRadius?: VoiceButtonRadius
   /** Voice Glow palette. @default "mono" (neutral) */
   glowVariant?: VoiceBeamColorVariant
   /** Your own glow colours, centre first — overrides `glowVariant`. */
@@ -440,15 +454,16 @@ export function VoiceInput({
   minDurationMs,
   getStream,
   disabled = false,
-  showGlow = true,
   showMicPicker = true,
   showTimer = true,
   showPlayback = true,
   showRecordingToggle = true,
   confirmReset = true,
-  meter = "meter",
+  fieldEffect = "glow",
+  meter = "level",
   playerWaveform = "bars",
   radius,
+  buttonRadius = "auto",
   glowVariant = "mono",
   glowColors,
   glowStrength = 1,
@@ -497,7 +512,6 @@ export function VoiceInput({
   const noteRef = useRef<HTMLDivElement | null>(null)
   const cornerRef = useRef<HTMLSpanElement | null>(null)
   const ringRef = useRef<HTMLSpanElement | null>(null)
-  const barsRef = useRef<HTMLSpanElement | null>(null)
   /** Keep focus on the corner when the button there is swapped out. */
   const cornerFocusRef = useRef(false)
 
@@ -547,6 +561,11 @@ export function VoiceInput({
     if (!live) return
     let raf = 0
     const shape = [0.7, 1, 0.82]
+    // Level bars can sit in the field, in the meter, or both.
+    const levelGroups = Array.from(
+      wrapperRef.current?.querySelectorAll<HTMLElement>("[data-voice-level]") ??
+        []
+    )
     const tick = () => {
       const level = paused ? 0 : getLevel()
       const ring = ringRef.current
@@ -559,8 +578,8 @@ export function VoiceInput({
           ring.style.opacity = String(0.12 + level * 0.22)
         }
       }
-      const bars = barsRef.current?.children
-      if (bars) {
+      for (const group of levelGroups) {
+        const bars = group.children
         for (let i = 0; i < bars.length; i++) {
           const bar = bars[i] as HTMLElement
           const value = Math.min(1, level * shape[i % 3] * 1.25)
@@ -581,7 +600,49 @@ export function VoiceInput({
       cancelAnimationFrame(raf)
       if (ring) ring.style.opacity = "0"
     }
-  }, [live, paused, reduced, getLevel])
+  }, [live, paused, reduced, getLevel, meter, fieldEffect])
+
+  // The button's corners follow the field's: concentric by default, so the
+  // gap between them is even all the way round. Measured, not assumed — the
+  // field may be yours, with its own radius, and the inset differs between
+  // an input (4px) and a textarea (8px).
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    const corner = cornerRef.current
+    const field = wrapper?.querySelector<HTMLElement>(
+      "[data-slot=input], [data-slot=textarea]"
+    )
+    if (!wrapper || !corner) return
+    const measure = () => {
+      let fieldRadius = 0
+      let inset = 0
+      if (field) {
+        const fieldRect = field.getBoundingClientRect()
+        const cornerRect = corner.getBoundingClientRect()
+        inset = Math.max(
+          0,
+          Math.min(
+            cornerRect.top - fieldRect.top,
+            fieldRect.right - cornerRect.right
+          )
+        )
+        fieldRadius = parseFloat(getComputedStyle(field).borderTopRightRadius)
+        if (!Number.isFinite(fieldRadius)) fieldRadius = 0
+      }
+      const value =
+        buttonRadius === "full"
+          ? corner.offsetWidth / 2
+          : buttonRadius === "auto"
+            ? Math.max(0, fieldRadius - inset)
+            : Math.max(0, buttonRadius)
+      corner.style.setProperty("--voice-button-radius", `${value}px`)
+      wrapper.style.setProperty("--voice-field-radius", `${fieldRadius}px`)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    if (field) observer.observe(field)
+    return () => observer.disconnect()
+  }, [buttonRadius, radius, multiline, children])
 
   // Track the note's real height (copy length, language, width): it becomes
   // the field's bottom padding so typed text always ends above it.
@@ -903,6 +964,18 @@ export function VoiceInput({
     </div>
   ) : null
 
+  /** Shared by the field glow and the glow meter. */
+  const glowProps = {
+    theme,
+    colorVariant: glowVariant,
+    colors: glowColors,
+    // Voice Glow's band keeps its own tint (pink on light) whatever the
+    // palette; a neutral glow needs a neutral band too.
+    bandColors:
+      glowVariant === "mono" && !glowColors ? NEUTRAL_BAND[theme] : undefined,
+    strength: glowStrength,
+  }
+
   const state = live
     ? status
     : processing
@@ -940,19 +1013,9 @@ export function VoiceInput({
         stream={recording ? recorder.stream : null}
         motion={motion}
         type="default"
-        theme={theme}
-        colorVariant={glowVariant}
-        colors={glowColors}
-        // Voice Glow's band keeps its own tint (pink on light) whatever the
-        // palette; a neutral glow needs a neutral band too.
-        bandColors={
-          glowVariant === "mono" && !glowColors
-            ? NEUTRAL_BAND[theme]
-            : undefined
-        }
-        active={showGlow && (live || processing)}
+        {...glowProps}
+        active={fieldEffect === "glow" && (live || processing)}
         paused={paused}
-        strength={glowStrength}
         borderRadius={radius}
         className="w-full"
         css={`
@@ -963,6 +1026,14 @@ export function VoiceInput({
       >
         {field}
         {sendNote}
+        {live && fieldEffect !== "glow" && fieldEffect !== "none" && (
+          <FieldVisual
+            visual={fieldEffect}
+            analyser={recorder.analyser}
+            getLevel={getLevel}
+            paused={paused}
+          />
+        )}
       </VoiceBeam>
 
       <span
@@ -975,13 +1046,17 @@ export function VoiceInput({
           // the corner swapped out is put back.
           if (event.relatedTarget) cornerFocusRef.current = false
         }}
-        className="absolute top-1 right-1 z-20 size-7 group-has-[[data-slot=textarea]]/voice-field:top-2 group-has-[[data-slot=textarea]]/voice-field:right-2"
+        className={cn(
+          "absolute top-1 right-1 z-20 size-7 group-has-[[data-slot=textarea]]/voice-field:top-2 group-has-[[data-slot=textarea]]/voice-field:right-2",
+          // Until it is measured: concentric with a shadcn rounded-lg field.
+          "[--voice-button-radius:max(0px,calc(var(--radius,0.5rem)-4px))] group-has-[[data-slot=textarea]]/voice-field:[--voice-button-radius:max(0px,calc(var(--radius,0.5rem)-8px))]"
+        )}
       >
         <span
           ref={ringRef}
           aria-hidden="true"
           className={cn(
-            "pointer-events-none absolute inset-0 rounded-full bg-[var(--voice-accent,var(--color-foreground))] opacity-0 transition-opacity duration-200",
+            "pointer-events-none absolute inset-0 rounded-[var(--voice-button-radius)] bg-[var(--voice-accent,var(--color-foreground))] opacity-0 transition-opacity duration-200",
             !recording && "invisible"
           )}
         />
@@ -1032,32 +1107,14 @@ export function VoiceInput({
 
       {live && (
         <div className="mt-2 flex min-h-6 items-center gap-2 text-xs font-medium text-muted-foreground">
-          {meter === "meter" ? (
-            <span
-              ref={barsRef}
-              aria-hidden="true"
-              className={cn(
-                "flex h-3 items-center gap-[2px] transition-opacity",
-                paused && "opacity-40"
-              )}
-            >
-              {[0, 1, 2].map((bar) => (
-                <span
-                  key={bar}
-                  className="h-full w-[3px] origin-center scale-y-25 rounded-full bg-[var(--voice-accent,var(--color-foreground))]"
-                />
-              ))}
-            </span>
-          ) : (
-            <LiveWaveform
+          {meter !== "none" && (
+            <MeterVisual
+              visual={meter}
               analyser={recorder.analyser}
               getLevel={getLevel}
-              frozen={paused}
-              waveform={meter}
-              className={cn(
-                "h-4 w-20 shrink-0 text-[var(--voice-wave,var(--color-foreground))]",
-                paused && "opacity-40"
-              )}
+              paused={paused}
+              stream={recording ? recorder.stream : null}
+              glow={glowProps}
             />
           )}
           <span
@@ -1169,10 +1226,134 @@ export function VoiceInput({
 
 // ── Pieces ──
 
+type VisualProps = {
+  analyser: AnalyserNode | null
+  getLevel: () => number
+  paused: boolean
+}
+
+function LevelBars({ className, bar }: { className?: string; bar: string }) {
+  return (
+    <span
+      data-voice-level
+      aria-hidden="true"
+      className={cn("flex items-center", className)}
+    >
+      {[0, 1, 2].map((index) => (
+        <span
+          key={index}
+          className={cn(
+            "h-full origin-center scale-y-25 rounded-full bg-[var(--voice-accent,var(--color-foreground))]",
+            bar
+          )}
+        />
+      ))}
+    </span>
+  )
+}
+
+/**
+ * The meter in the line under the field. `glow` is a small Voice Glow pill —
+ * the same light that plays along the field, at the size of a meter.
+ */
+function MeterVisual({
+  visual,
+  analyser,
+  getLevel,
+  paused,
+  stream,
+  glow,
+}: VisualProps & {
+  visual: Exclude<VoiceVisual, "none">
+  stream: MediaStream | null
+  glow: Partial<ComponentProps<typeof VoiceBeam>>
+}) {
+  const dim = paused && "opacity-40"
+  if (visual === "level") {
+    return (
+      <LevelBars
+        className={cn("h-3 gap-[2px] transition-opacity", dim)}
+        bar="w-[3px]"
+      />
+    )
+  }
+  if (visual === "glow") {
+    return (
+      <VoiceBeam
+        {...glow}
+        stream={stream}
+        active
+        paused={paused}
+        type="pill"
+        borderRadius={9}
+        className="shrink-0"
+      >
+        <span
+          aria-hidden="true"
+          className="block h-[18px] w-20 rounded-[9px] bg-foreground/[0.04]"
+        />
+      </VoiceBeam>
+    )
+  }
+  return (
+    <LiveWaveform
+      analyser={analyser}
+      getLevel={getLevel}
+      frozen={paused}
+      waveform={visual}
+      className={cn(
+        "h-4 w-20 shrink-0 text-[var(--voice-wave,var(--color-foreground))]",
+        dim
+      )}
+    />
+  )
+}
+
+/**
+ * The voice drawn inside the field when it isn't the glow: a band along the
+ * bottom of the field, faint enough that typed text reads over it.
+ */
+function FieldVisual({
+  visual,
+  analyser,
+  getLevel,
+  paused,
+}: VisualProps & { visual: "level" | VoiceWaveformStyle }) {
+  return (
+    <div
+      aria-hidden="true"
+      data-slot="voice-input-field-visual"
+      className={cn(
+        "pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-full max-h-12 overflow-hidden rounded-b-[var(--voice-field-radius,0.5rem)] transition-opacity duration-200",
+        "animate-in fade-in-0",
+        paused ? "opacity-40" : "opacity-100"
+      )}
+    >
+      {visual === "level" ? (
+        <LevelBars
+          className="absolute inset-x-0 bottom-1.5 mx-auto h-5 w-fit gap-[3px] opacity-35"
+          bar="w-1"
+        />
+      ) : (
+        <LiveWaveform
+          analyser={analyser}
+          getLevel={getLevel}
+          frozen={paused}
+          waveform={visual}
+          className={cn(
+            "absolute inset-x-3 inset-y-1.5 h-auto text-[var(--voice-wave,var(--color-foreground))]",
+            visual === "wave" ? "opacity-35" : "opacity-[0.16]"
+          )}
+        />
+      )}
+    </div>
+  )
+}
+
 const CORNER_BUTTON = cn(
-  "relative inline-flex size-7 items-center justify-center rounded-full outline-none",
+  "relative inline-flex size-7 items-center justify-center rounded-[var(--voice-button-radius,9999px)] outline-none",
   // Hit area: 36px with a pointer, 44px on touch.
-  "before:absolute before:-inset-1 before:rounded-full before:content-[''] pointer-coarse:before:-inset-2",
+  "before:absolute before:-inset-1 before:rounded-[inherit] before:content-[''] pointer-coarse:before:-inset-2",
   "transition-[background-color,color,box-shadow,scale,opacity] duration-150 ease-out active:scale-[0.94]",
   "focus-visible:ring-3 focus-visible:ring-ring/40",
   "disabled:cursor-default disabled:active:scale-100 aria-disabled:cursor-default aria-disabled:active:scale-100"

@@ -6,7 +6,7 @@ import { VoiceInputShowcase } from "@/components/voice-input-showcase"
 export const metadata: Metadata = {
   title: docsTitle("/voice-input"),
   description:
-    "A normal text field with a microphone in its corner: record, transcribe into the same field, play back, reset, and choose whether the recording is sent.",
+    "A normal text field with a microphone in its corner. An agent skill scans your app, asks for your OK, then installs it and builds the transcription backend.",
 }
 
 export default function Page() {

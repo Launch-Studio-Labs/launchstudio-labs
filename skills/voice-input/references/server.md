@@ -1,11 +1,24 @@
-# Voice Input — server reference (Next.js App Router)
+# Voice Input — backend (Phase 3, steps 3–5)
 
-A transcription endpoint and a delete endpoint for `<VoiceInput>` (the mic
-in the corner of a text field), modelled on the Launch Studio portal (`lib/voice-answer-server.ts` +
-`app/api/intro-questionnaire/voice/route.ts`). The client calls DELETE
-when the person resets an answer, when a new take replaces a stored one, and
-when they turn sending recordings off after a send. Adapt storage, auth and rate
-limiting to the app; keep the privacy behaviour as is.
+Only what the user approved in the plan. Adapt the code to the app's own
+route style, auth, rate limiting, env handling, DB and storage — the
+examples below are a Next.js App Router baseline.
+
+Two shapes, pick the approved one:
+
+- **Transcript only (recommended default):** one POST route. Audio is
+  transcribed from memory and dropped. No storage, no DELETE route, no
+  migration. `keep_audio` is ignored (always discard), and `audioId` is
+  always `null`.
+- **Audio stored:** the POST route also stores audio when `keep_audio=1`,
+  plus a DELETE route, a reference saved with the answer, and submit-time
+  enforcement (below).
+
+The code is modelled on the Launch Studio portal's voice answers
+(`lib/voice-answer-server.ts` + `app/api/intro-questionnaire/voice/route.ts`).
+The client calls DELETE when the person resets an answer, when a new take
+replaces a stored one, and when they turn sending recordings off after a
+send.
 
 Environment:
 
@@ -185,3 +198,49 @@ submitted with recordings withheld, on the server:
 That is what the portal's `withholdRecordings()` does on
 `POST /api/intro-questionnaire/responses`. It guarantees withheld audio
 never outlives the submission even if a client-side delete never arrived.
+
+## Fitting it into the app's data
+
+- **Where the reference lives.** Next to the answer it belongs to: an
+  `audio_path` (or `audio_id`) column on the table that stores the field, or
+  inside the answer JSON if answers are stored as JSON. Store the storage
+  key, never a public URL.
+- **The choice.** Persist `send_recordings` (boolean, default true) once per
+  form/response — a column, or a field in the saved JSON.
+- **Migrations.** Use the app's tool (Prisma migrate, drizzle-kit, Supabase
+  SQL migrations, raw SQL files) and naming. Additive and nullable, so
+  existing rows keep working. Don't run it against a shared database —
+  tell the user to.
+- **Storage.** A private bucket/prefix, scoped per owner
+  (`<ownerId>/<formId>/voice/<random>.<ext>`). Serve playback through signed
+  URLs or an authenticated route, never a public bucket.
+- **Auth on DELETE.** Check the caller owns the key (prefix or owner
+  column) before deleting. Idempotent: already gone is success.
+- **Other providers.** If the app already uses another speech-to-text
+  provider (Deepgram, AssemblyAI, Google, Azure, the Vercel AI SDK's
+  `experimental_transcribe`), use it — the contract to the client is the
+  same: `{ transcript, audioId }`, `422 { code: "empty" }`,
+  `503 { code: "unconfigured" }`, anything else a failure.
+- **Limits.** Keep `maxDurationMs` on the client under the host's body
+  limit. Chrome records Opus in WebM at roughly 0.7 MB/min (5 min ≈ 3.5 MB);
+  Vercel Functions cap request bodies at 4.5 MB. Edge/Workers runtimes: use `arrayBuffer()` and `Blob`,
+  not Node `Buffer`.
+
+## Privacy — "don't send recordings", end to end
+
+The component shows the choice and passes it along. Honouring it is the
+server's job. All of these, whenever audio can be stored:
+
+1. **`keep_audio=0` means transcribe and drop.** No object storage, no temp
+   file left behind, no audio in logs, analytics or error reports.
+2. **Nothing else uploads it.** `onResult` gives `audio: null` and
+   `audioId: null` when withheld. (Local playback in the component plays
+   from memory on the device — fine.)
+3. **Delete on opt-out, reset and replacement.** The component calls
+   `onDeleteRecording(result)` with the stored `audioId`; delete the object
+   *and* its reference (column, draft JSON).
+4. **Re-apply the choice at submit** (above): strip references and delete
+   files for withheld answers, so a delete that never arrived (closed tab,
+   network error) can't leave audio behind.
+5. **Honest copy.** The in-field line says "Recordings won't be sent with
+   your answers." Only ship that if 1–4 are true.

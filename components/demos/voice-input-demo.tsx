@@ -1,33 +1,26 @@
 "use client"
 
 import {
-  useEffect,
-  useRef,
   useState,
   type ComponentProps,
   type CSSProperties,
   type ReactNode,
 } from "react"
-import { getAudioContext, type VoiceBeamColorVariant } from "voice-glow"
+import type { VoiceBeamColorVariant } from "voice-glow"
 
 import { DemoFrame } from "@/components/demos/demo-frame"
 import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Toggle } from "@/components/ui/toggle"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   VoiceInput,
-  VoiceTranscriptionError,
   type VoiceInputProps,
-  type VoiceInsertMode,
-  type VoiceMeterStyle,
   type VoiceSubmitMode,
   type VoiceTranscribe,
+  type VoiceVisual,
 } from "@/components/ui/voice-input"
 import { cn } from "@/lib/utils"
 
-type MicSource = "real" | "simulated" | "blocked"
-type Outcome = "works" | "fails" | "empty"
 type Tone = "neutral" | "ocean" | "sunset" | "colorful"
 
 const TONES: Record<
@@ -40,33 +33,21 @@ const TONES: Record<
   colorful: { glow: "colorful", label: "Colorful" },
 }
 
-/** The field's own corner, `rounded-lg` at the Labs radius. */
-const FIELD_RADIUS = 9
+/** The voice styles, shared by the field and the meter. */
+const VISUALS: [Exclude<VoiceVisual, "none">, string][] = [
+  ["glow", "Glow"],
+  ["level", "Level"],
+  ["bars", "Bars"],
+  ["wave", "Line"],
+  ["dots", "Dots"],
+]
 
-const PARTS = [
-  ["showGlow", "Glow"],
-  ["showMicPicker", "Mic picker"],
-  ["showTimer", "Timer"],
-  ["showPlayback", "Playback"],
-  ["showRecordingToggle", "Recording choice"],
-  ["confirmReset", "Confirm reset"],
-  ["allowPause", "Pause"],
-  ["autoGainControl", "Auto gain"],
-] as const
-
-type Part = (typeof PARTS)[number][0]
-
-/** Every default here is the component's own: the portal layout. */
-const DEFAULT_PARTS: Record<Part, boolean> = {
-  showGlow: true,
-  showMicPicker: true,
-  showTimer: true,
-  showPlayback: true,
-  showRecordingToggle: true,
-  confirmReset: true,
-  allowPause: false,
-  autoGainControl: true,
-}
+/** The field's own corner: shadcn's `rounded-lg` at the Labs radius. */
+const FIELD_RADIUS = 7.2
+/** The mic's inset on the single-line field; the slider shows its value. */
+const INPUT_INSET = 4
+/** Half the 28px button: a circle. */
+const ROUND = 14
 
 /** What the "server" writes, by length — the demo has no model behind it. */
 const SAMPLE_TRANSCRIPTS = {
@@ -86,31 +67,26 @@ type LogEntry = { id: number; text: string; tone?: "withheld" | "deleted" }
 
 /**
  * Two fields from a form — a short answer and a long one — each with Voice
- * Input's mic in the corner, exactly as the component ships. The tabs under
- * them are the props, layered on top of that default.
+ * Input's mic in the corner, exactly as the component ships. The dials under
+ * them change the look, never the composition: at their defaults the fields
+ * are the component's defaults.
  *
- * The microphone can be swapped for a synthetic or a blocked one and the
- * transcription made to fail, so every state is reachable without hardware
- * or an API key. The log is the point of the privacy line: it shows what the
- * app was handed — audio or not — and when stored audio was deleted.
+ * Transcription is a stand-in, so it works without an API key. The log shows
+ * what the app was handed — audio or not — and when stored audio was deleted,
+ * which is what the line inside the field controls.
  */
 export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
   const [submit, setSubmit] = useState<VoiceSubmitMode>("auto")
-  const [insert, setInsert] = useState<VoiceInsertMode>("replace")
-  const [mic, setMic] = useState<MicSource>("real")
-  const [outcome, setOutcome] = useState<Outcome>("works")
-
-  const [meter, setMeter] = useState<VoiceMeterStyle>("meter")
+  const [fieldEffect, setFieldEffect] = useState<VoiceVisual>("glow")
+  const [meter, setMeter] = useState<VoiceVisual>("level")
   const [tone, setTone] = useState<Tone>("neutral")
   const [radius, setRadius] = useState<number | null>(null)
+  const [buttonRadius, setButtonRadius] = useState<number | "auto">("auto")
   const [glowStrength, setGlowStrength] = useState(1)
 
-  const [parts, setParts] = useState(DEFAULT_PARTS)
   const [sendRecording, setSendRecording] = useState(true)
   const [active, setActive] = useState<string | null>(null)
   const [log, setLog] = useState<LogEntry[]>([])
-
-  const simulated = useSimulatedMicrophone()
 
   function note(text: string, tone?: LogEntry["tone"]) {
     setLog((current) =>
@@ -130,14 +106,6 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
         sendRecording ? undefined : "withheld"
       )
       await wait(1400, signal)
-      if (outcome === "fails") {
-        note("← 502 transcription failed")
-        throw new VoiceTranscriptionError("failed")
-      }
-      if (outcome === "empty") {
-        note("← 422 no words heard")
-        throw new VoiceTranscriptionError("empty")
-      }
       const index = take.durationMs < 4000 ? 0 : take.durationMs < 12000 ? 1 : 2
       const audioId = sendRecording
         ? `rec_${Math.random().toString(36).slice(2, 8)}`
@@ -150,22 +118,18 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
       return { transcript: SAMPLE_TRANSCRIPTS[kind][index], audioId }
     }
 
-  const getStream =
-    mic === "simulated"
-      ? simulated
-      : mic === "blocked"
-        ? () =>
-            Promise.reject(
-              new DOMException("Permission denied", "NotAllowedError")
-            )
-        : undefined
+  const fieldRadius = radius ?? FIELD_RADIUS
+  const autoButtonRadius = Math.max(0, fieldRadius - INPUT_INSET)
+  // A radius past half the button already draws a circle.
+  const shownButtonRadius = Math.min(
+    ROUND,
+    buttonRadius === "auto" ? autoButtonRadius : buttonRadius
+  )
 
   const toneStyle = TONES[tone]
   /** Props both fields share; anything left at its default is the portal. */
   const shared = (id: string): VoiceInputProps => ({
     submit,
-    insert,
-    getStream,
     onDeleteRecording: (result) => {
       note(`DELETE /api/voice/${result.audioId}`, "deleted")
     },
@@ -175,16 +139,15 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
       setActive((current) => (on ? id : current === id ? null : current)),
     sendRecording,
     onSendRecordingChange: setSendRecording,
+    fieldEffect,
     meter,
     radius: radius ?? undefined,
+    buttonRadius: buttonRadius === ROUND ? "full" : buttonRadius,
     glowVariant: toneStyle.glow,
     glowStrength,
     style: toneStyle.accent
       ? ({ "--voice-accent": toneStyle.accent } as CSSProperties)
       : undefined,
-    ...parts,
-    // A synthetic or blocked source has no devices to switch between.
-    showMicPicker: parts.showMicPicker && mic === "real",
   })
 
   return (
@@ -193,9 +156,9 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
       {...props}
     >
       <DemoFrame className="w-full min-w-0! px-4 py-8 sm:px-8">
-        {/* A new flow or microphone starts both fields from a clean slate. */}
+        {/* A new flow starts both fields from a clean slate. */}
         <div
-          key={`${submit}-${mic}`}
+          key={submit}
           className="flex w-full max-w-[26rem] flex-col gap-6 rounded-xl bg-card p-5 shadow-xs ring-1 ring-foreground/5"
         >
           <Field id="voice-demo-short" label="What should we call it?">
@@ -217,6 +180,98 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
           </Field>
         </div>
       </DemoFrame>
+
+      <div className="flex flex-col gap-3">
+        <Choice
+          label="After a take"
+          value={submit}
+          onChange={setSubmit}
+          options={[
+            ["auto", "Send"],
+            ["manual", "Hold"],
+          ]}
+        />
+        <Choice
+          label="In the field"
+          value={fieldEffect}
+          onChange={setFieldEffect}
+          options={VISUALS}
+        />
+        <Choice
+          label="Meter"
+          value={meter}
+          onChange={setMeter}
+          options={VISUALS}
+        />
+        <Choice
+          label="Color"
+          value={tone}
+          onChange={setTone}
+          options={(Object.keys(TONES) as Tone[]).map((key) => [
+            key,
+            TONES[key].label,
+          ])}
+        />
+        <Row label="Field radius">
+          <Slider
+            aria-label="Field corner radius"
+            min={0}
+            max={24}
+            step={0.5}
+            value={[fieldRadius]}
+            onValueChange={(value) =>
+              setRadius(Array.isArray(value) ? value[0] : value)
+            }
+            className="min-w-0 flex-1"
+          />
+          <Value>{px(fieldRadius)}</Value>
+        </Row>
+        <Row label="Mic radius">
+          <Slider
+            aria-label="Mic button corner radius"
+            min={0}
+            max={ROUND}
+            step={0.5}
+            value={[shownButtonRadius]}
+            onValueChange={(value) =>
+              setButtonRadius(Array.isArray(value) ? value[0] : value)
+            }
+            className={cn(
+              "min-w-0 flex-1",
+              buttonRadius === "auto" && "opacity-60"
+            )}
+          />
+          <Value>
+            {shownButtonRadius >= ROUND ? "Round" : px(shownButtonRadius)}
+          </Value>
+          <Toggle
+            size="sm"
+            pressed={buttonRadius === "auto"}
+            onPressedChange={(pressed) => {
+              if (pressed) setButtonRadius("auto")
+            }}
+            aria-label="Concentric with the field"
+            title="Field radius minus the mic's inset"
+            className="h-7 shrink-0 px-2.5 text-xs"
+          >
+            Auto
+          </Toggle>
+        </Row>
+        <Row label="Glow">
+          <Slider
+            aria-label="Glow strength"
+            min={0}
+            max={1}
+            step={0.05}
+            value={[glowStrength]}
+            onValueChange={(value) =>
+              setGlowStrength(Array.isArray(value) ? value[0] : value)
+            }
+            className="min-w-0 flex-1"
+          />
+          <Value>{Math.round(glowStrength * 100)}%</Value>
+        </Row>
+      </div>
 
       <div className="flex flex-col gap-3">
         <p className="text-xs font-medium text-muted-foreground">
@@ -246,136 +301,12 @@ export function VoiceInputDemo({ className, ...props }: ComponentProps<"div">) {
           </ul>
         )}
       </div>
-
-      <Tabs defaultValue="flow" className="gap-6">
-        <TabsList>
-          <TabsTrigger value="flow">Flow</TabsTrigger>
-          <TabsTrigger value="look">Look</TabsTrigger>
-          <TabsTrigger value="parts">Parts</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="flow" className="flex flex-col gap-3">
-          <Choice
-            label="After a take"
-            value={submit}
-            onChange={setSubmit}
-            options={[
-              ["auto", "Send"],
-              ["manual", "Hold"],
-            ]}
-          />
-          <Choice
-            label="Transcript"
-            value={insert}
-            onChange={setInsert}
-            options={[
-              ["replace", "Replaces text"],
-              ["append", "Appends"],
-            ]}
-          />
-          <Choice
-            label="Microphone"
-            value={mic}
-            onChange={setMic}
-            options={[
-              ["real", "Real"],
-              ["simulated", "Simulated"],
-              ["blocked", "Blocked"],
-            ]}
-          />
-          <Choice
-            label="Transcription"
-            value={outcome}
-            onChange={setOutcome}
-            options={[
-              ["works", "Works"],
-              ["fails", "Fails"],
-              ["empty", "Hears nothing"],
-            ]}
-          />
-          <Row label="Send recordings">
-            <Switch
-              size="sm"
-              checked={sendRecording}
-              onCheckedChange={setSendRecording}
-              aria-label="Send recordings with the answers"
-            />
-          </Row>
-        </TabsContent>
-
-        <TabsContent value="look" className="flex flex-col gap-3">
-          <Choice
-            label="Meter"
-            value={meter}
-            onChange={setMeter}
-            options={[
-              ["meter", "Level"],
-              ["bars", "Bars"],
-              ["wave", "Line"],
-              ["dots", "Dots"],
-            ]}
-          />
-          <Choice
-            label="Color"
-            value={tone}
-            onChange={setTone}
-            options={(Object.keys(TONES) as Tone[]).map((key) => [
-              key,
-              TONES[key].label,
-            ])}
-          />
-          <Row label="Radius">
-            <Slider
-              aria-label="Field corner radius"
-              min={0}
-              max={24}
-              step={1}
-              value={[radius ?? FIELD_RADIUS]}
-              onValueChange={(value) =>
-                setRadius(Array.isArray(value) ? value[0] : value)
-              }
-              className="w-44"
-            />
-            <Value>{radius === null ? "Field" : `${radius}px`}</Value>
-          </Row>
-          <Row label="Glow">
-            <Slider
-              aria-label="Glow strength"
-              min={0}
-              max={1}
-              step={0.05}
-              value={[glowStrength]}
-              onValueChange={(value) =>
-                setGlowStrength(Array.isArray(value) ? value[0] : value)
-              }
-              className="w-44"
-            />
-            <Value>{Math.round(glowStrength * 100)}%</Value>
-          </Row>
-        </TabsContent>
-
-        <TabsContent value="parts">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            {PARTS.map(([key, label]) => (
-              <label
-                key={key}
-                className="flex cursor-pointer items-center gap-2.5 text-sm text-muted-foreground select-none"
-              >
-                <Switch
-                  size="sm"
-                  checked={parts[key]}
-                  onCheckedChange={(checked) =>
-                    setParts((current) => ({ ...current, [key]: checked }))
-                  }
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
     </div>
   )
+}
+
+function px(value: number) {
+  return `${Math.round(value * 10) / 10}px`
 }
 
 /** A form question: label over the field, as the portal sets them. */
@@ -398,20 +329,28 @@ function Field({
   )
 }
 
+/**
+ * One dial: the label on a fixed column, the control taking the rest. On a
+ * phone the label sits above, so a row of options keeps the full width.
+ */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-9 items-center gap-4">
-      <span className="w-28 shrink-0 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-1.5 sm:min-h-9 sm:flex-row sm:items-center sm:gap-4">
+      <span className="shrink-0 text-sm text-muted-foreground sm:w-28">
         {label}
       </span>
-      <div className="flex min-w-0 items-center gap-3">{children}</div>
+      {/* flex-1: a slider is w-full of this box, so the box must have a
+          width to give — shrink-wrapped, it collapsed to a stub. */}
+      <div className="flex min-h-8 min-w-0 flex-1 items-center gap-3">
+        {children}
+      </div>
     </div>
   )
 }
 
 function Value({ children }: { children: ReactNode }) {
   return (
-    <span className="w-10 text-xs text-muted-foreground tabular-nums">
+    <span className="w-11 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
       {children}
     </span>
   )
@@ -440,6 +379,7 @@ function Choice<T extends string>({
           const picked = next[0] as T | undefined
           if (picked) onChange(picked)
         }}
+        className="flex-wrap"
       >
         {options.map(([key, text]) => (
           <ToggleGroupItem key={key} value={key} className="px-2.5 text-xs">
@@ -459,74 +399,4 @@ function wait(ms: number, signal: AbortSignal) {
       reject(new DOMException("Aborted", "AbortError"))
     })
   })
-}
-
-/**
- * A stand-in microphone: a voiced buzz shaped into syllables, so the
- * waveform, the glow and the recording all have something speech-like to
- * show. It plays nowhere; it only feeds the stream.
- */
-function useSimulatedMicrophone() {
-  const nodesRef = useRef<{ stop: () => void } | null>(null)
-  useEffect(() => () => nodesRef.current?.stop(), [])
-
-  return async () => {
-    const context = getAudioContext()
-    if (!context) throw new DOMException("No Web Audio", "NotSupportedError")
-    if (context.state === "suspended") await context.resume()
-    nodesRef.current?.stop()
-
-    const voice = context.createOscillator()
-    voice.type = "sawtooth"
-    voice.frequency.value = 150
-    const vibrato = context.createOscillator()
-    vibrato.frequency.value = 3
-    const vibratoDepth = context.createGain()
-    vibratoDepth.gain.value = 18
-    vibrato.connect(vibratoDepth).connect(voice.frequency)
-
-    const formant = context.createBiquadFilter()
-    formant.type = "bandpass"
-    formant.frequency.value = 900
-    formant.Q.value = 1.2
-
-    // Syllables: a slow and a fast LFO multiplied into the envelope.
-    const envelope = context.createGain()
-    envelope.gain.value = 0
-    const syllable = context.createOscillator()
-    syllable.frequency.value = 3.4
-    const phrase = context.createOscillator()
-    phrase.frequency.value = 0.45
-    const syllableDepth = context.createGain()
-    syllableDepth.gain.value = 0.35
-    const phraseDepth = context.createGain()
-    phraseDepth.gain.value = 0.3
-    syllable.connect(syllableDepth).connect(envelope.gain)
-    phrase.connect(phraseDepth).connect(envelope.gain)
-
-    const destination = context.createMediaStreamDestination()
-    voice.connect(formant).connect(envelope).connect(destination)
-    const oscillators = [voice, vibrato, syllable, phrase]
-    oscillators.forEach((node) => node.start())
-
-    const stop = () => {
-      oscillators.forEach((node) => {
-        try {
-          node.stop()
-        } catch {
-          // Already stopped.
-        }
-      })
-      envelope.disconnect()
-    }
-    nodesRef.current = { stop }
-    const [track] = destination.stream.getAudioTracks()
-    // The recorder stops the track when a take ends; take the buzz with it.
-    const stopTrack = track.stop.bind(track)
-    track.stop = () => {
-      stopTrack()
-      stop()
-    }
-    return destination.stream
-  }
 }

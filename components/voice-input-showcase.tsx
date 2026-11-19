@@ -48,6 +48,30 @@ const transcribe = async (take, { sendRecording, signal }) => {
   <Input value={name} onChange={(e) => setName(e.target.value)} />
 </VoiceInput>`
 
+const SKILL_COMMAND =
+  "npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/voice-input"
+/** Served from this site by app/skills/[...path], on every host. */
+const SKILL_FILE = "/skills/voice-input/SKILL.md"
+const SKILL_INSTALL = "/skills/voice-input/references/install.md"
+
+const SKILL_STEPS = [
+  {
+    title: "Scans your repo",
+    body: "Reads your shadcn setup, the forms and fields where voice fits, your API, database and storage — and any instructions you gave it. Changes nothing.",
+  },
+  {
+    title: "Asks for your OK",
+    body: "Sends a short plan: registry or manual install and why, which fields get the mic, how transcription and recordings fit your backend, new env vars. Then waits.",
+  },
+  {
+    title: "Implements it",
+    body: "Installs the component, puts the mic on the agreed fields, builds the transcription route and the don't-send-recordings handling, and checks it works.",
+  },
+]
+
+const LINK =
+  "font-medium text-foreground underline decoration-foreground/20 underline-offset-2 hover:decoration-foreground/60"
+
 const TOKENS = `/* Optional — these are the defaults, from your shadcn theme. */
 :root {
   --voice-accent: var(--foreground);            /* recording button */
@@ -85,25 +109,83 @@ export function VoiceInputShowcase() {
       <Prose className="labs-enter labs-enter-delay-2">
         <p>
           <strong>A normal text field with a microphone in its corner.</strong>{" "}
-          People type as usual; the mic is the extra. Press it and the field
-          glows while you talk, with a level meter, the clock and the microphone
-          underneath. Stop, and the transcript is written into the same field.
-          After that the corner button resets the answer, a player under the
-          field plays the recording back, and a line inside the field lets the
-          person decide whether their recording is sent at all.
-        </p>
-        <p>
-          Every state is reachable below without a microphone or an API key —
-          switch the microphone to <em>Simulated</em> or <em>Blocked</em>, or
-          make transcription fail, and watch what the app receives.
+          People type as usual; the mic is the extra. Press it, talk, stop — the
+          transcript is written into the same field. A player under the field
+          plays it back, and a line inside the field lets people decide whether
+          their recording is sent at all.
         </p>
       </Prose>
 
-      <VoiceInputDemo className="labs-enter labs-enter-delay-3" />
+      <Section
+        title="Add it with the skill"
+        className="labs-enter labs-enter-delay-2"
+      >
+        <Prose>
+          <p>
+            Give the skill to your coding agent and ask it to add voice input.
+            It installs the component <strong>and</strong> wires it into your
+            app, backend included.
+          </p>
+        </Prose>
+        <ol className="flex flex-col gap-4">
+          {SKILL_STEPS.map((step, index) => (
+            <li key={step.title} className="flex gap-3">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums">
+                {index + 1}
+              </span>
+              <div className="flex min-w-0 flex-col gap-1 pt-0.5">
+                <p className="text-sm font-medium">{step.title}</p>
+                <p className="text-sm leading-normal text-body">{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="rounded-lg bg-muted px-4 py-3 text-sm font-medium">
+          Nothing changes in your repo until you say OK.
+        </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium">Get the skill</p>
+          <Command text={SKILL_COMMAND} />
+          <Prose>
+            <p>
+              Or{" "}
+              <a href={SKILL_FILE} download="SKILL.md" className={LINK}>
+                download SKILL.md
+              </a>{" "}
+              and put it in your agent&apos;s skills folder as{" "}
+              <Code>voice-input/SKILL.md</Code> (for Claude Code,{" "}
+              <Code>.claude/skills/</Code>). Its references load from this site
+              when they&apos;re not next to it. Then ask:{" "}
+              <em>&ldquo;Add voice input to the feedback form.&rdquo;</em>
+            </p>
+          </Prose>
+        </div>
+      </Section>
+
+      <Section title="Try it" className="labs-enter labs-enter-delay-3">
+        <Prose>
+          <p>
+            Transcription is a stand-in here, so it works without an API key;
+            the log shows what your app would receive.
+          </p>
+        </Prose>
+        <VoiceInputDemo />
+      </Section>
 
       <Separator className="labs-enter labs-enter-delay-3" />
 
-      <Section title="Install" className="labs-enter labs-enter-delay-3">
+      <Section
+        title="Install it yourself"
+        className="labs-enter labs-enter-delay-3"
+      >
+        <Prose>
+          <p>
+            Optional — the skill does this for you. If you&apos;d rather wire it
+            by hand, use the shadcn registry when your app has a{" "}
+            <Code>components.json</Code>, and copy the files when it
+            doesn&apos;t.
+          </p>
+        </Prose>
         <Tabs defaultValue="registry" className="gap-6">
           <TabsList>
             <TabsTrigger value="registry">shadcn registry</TabsTrigger>
@@ -151,7 +233,11 @@ export function VoiceInputShowcase() {
                 Use it as it comes — it renders the field — or wrap the{" "}
                 <Code>Input</Code> / <Code>Textarea</Code> you already have. If
                 your <Code>Popover</Code> and <Code>DropdownMenu</Code> are the
-                Radix flavour, see the skill for the three small changes.
+                Radix flavour, see{" "}
+                <a href={SKILL_INSTALL} className={LINK}>
+                  the install notes
+                </a>{" "}
+                for the small changes.
               </p>
             </Step>
             <Step n={5} title="Tune the colours, if you like">
@@ -172,12 +258,22 @@ export function VoiceInputShowcase() {
             <Code>insert=&quot;append&quot;</Code> follows it.
           </p>
           <p>
+            The voice is drawn in two places, from one set of styles —{" "}
+            <Code>glow</Code>, <Code>level</Code>, <Code>bars</Code>,{" "}
+            <Code>wave</Code> and <Code>dots</Code>: <Code>fieldEffect</Code>{" "}
+            inside the field (Voice Glow by default) and <Code>meter</Code> in
+            the line under it (the three level bars by default). The mic&apos;s
+            corners are concentric with the field&apos;s:{" "}
+            <Code>buttonRadius=&quot;auto&quot;</Code> takes the field&apos;s
+            radius minus the button&apos;s inset, or pass a number or{" "}
+            <Code>&quot;full&quot;</Code>.
+          </p>
+          <p>
             Everything else is opt-in: <Code>submit=&quot;manual&quot;</Code>{" "}
             holds a take under the field until the person presses Send,{" "}
-            <Code>allowPause</Code> adds pause, <Code>meter</Code> swaps the
-            level bars for a waveform, and the glow, mic picker, timer, player,
-            recording line and reset confirm each have their own switch. All
-            copy goes through <Code>labels</Code>.
+            <Code>allowPause</Code> adds pause, and the mic picker, timer,
+            player, recording line and reset confirm each have their own switch.
+            All copy goes through <Code>labels</Code>.
           </p>
         </Prose>
       </Section>

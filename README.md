@@ -40,7 +40,18 @@ the bare demo).
 </VoiceInput>
 ```
 
-Install through the registry:
+**Add it with the skill (default).** `skills/voice-input/SKILL.md` makes a
+coding agent scan your repo, send you a short plan (registry or manual
+install, which fields, transcription, recordings and privacy, env vars) and
+wait for your OK — then install the component and implement the frontend and
+backend. Nothing changes until you approve.
+
+```bash
+npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/voice-input
+# or download https://labs.launchstudio.space/skills/voice-input/SKILL.md into your agent's skills folder
+```
+
+**Or install it yourself** through the registry:
 
 ```bash
 npx shadcn@latest add https://labs.launchstudio.space/r/voice-input.json
@@ -52,9 +63,14 @@ Or by hand: `npm install voice-glow @phosphor-icons/react`,
 `components/ui/voice-input.tsx`, `components/ui/voice-waveform.tsx`,
 `hooks/use-voice-recorder.ts` and `lib/voice-recording.ts`.
 
-`skills/voice-input/SKILL.md` is the agent guide: install paths, wrapping a
-field, microphone permissions, an OpenAI transcription route, and how to
-honour "don't send recordings" end to end (including deleting stored audio).
+Optional looks: `fieldEffect` and `meter` take the same styles (`glow`,
+`level`, `bars`, `wave`, `dots`) for the voice inside the field and under it;
+`buttonRadius` is `"auto"` (concentric with the field), `"full"` or px.
+
+The skill's `references/` hold the details for doing it by hand too:
+`install.md`, `component.md` (wiring, props, permissions), `server.md`
+(OpenAI transcription route, storage, deleting audio, "don't send
+recordings" end to end) and `scan.md`.
 
 The glow is [Voice Glow](https://libraries.dev/voice) by Jakub Antalik, MIT
 License, Copyright (c) 2026 Jakub Antalik — see `THIRD_PARTY_NOTICES.md`.
