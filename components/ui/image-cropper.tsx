@@ -188,8 +188,11 @@ const STAGE_PAD = 20
 const MIN_CROP = 48
 /** How far past the cover scale you can zoom in. */
 const MAX_ZOOM = 10
-/** With AI fill on, how far below the cover scale you can zoom out. */
-const FILL_MIN_ZOOM = 0.55
+/**
+ * With AI fill on, how far past the photo the crop can reach on each side, as
+ * a share of the photo's short side. Zooming out and panning both stop there.
+ */
+const FILL_REACH = 0.25
 /** Feathered edge of the photo over a fill, as a share of its short side. */
 const FEATHER = 0.012
 /** Wait after a crop settles before asking for a fill. */
@@ -1096,15 +1099,14 @@ class CropEngine {
 
   resolve(v: View, mode: RenderMode): Resolved {
     if (mode === "raw") return { s: v.s, fx: v.fx, fy: v.fy }
-    const cover = coverScale(v.cw, v.ch, v.rot, this.w, this.h)
-    const min = this.fill ? cover * FILL_MIN_ZOOM : cover
-    const max = cover * MAX_ZOOM
+    // The same cover math, against the photo or, with AI fill on, the photo
+    // grown by its reach: the frame never shows more than that much fill.
+    const b = this.bounds()
+    const min = coverScale(v.cw, v.ch, v.rot, b.w, b.h)
+    const max = coverScale(v.cw, v.ch, v.rot, this.w, this.h) * MAX_ZOOM
     const s =
       mode === "soft" ? rubber(v.s, min, max, min * 0.5) : clamp(v.s, min, max)
-    // AI fill only asks that the crop's centre stays on the photo.
-    const lim = this.fill
-      ? { x: this.w / 2, y: this.h / 2 }
-      : focalLimit(v.cw, v.ch, v.rot, this.w, this.h, s)
+    const lim = focalLimit(v.cw, v.ch, v.rot, b.w, b.h, s)
     if (mode === "soft") {
       const dim = 90 / s
       return {
@@ -1114,6 +1116,12 @@ class CropEngine {
       }
     }
     return { s, fx: clamp(v.fx, -lim.x, lim.x), fy: clamp(v.fy, -lim.y, lim.y) }
+  }
+
+  /** What the crop must stay inside, in box px: the photo, plus the fill's reach. */
+  private bounds() {
+    const m = this.fill ? 2 * FILL_REACH * Math.min(this.w, this.h) : 0
+    return { w: this.w + m, h: this.h + m }
   }
 
   /** The photo's centre on the stage. */
@@ -1665,7 +1673,7 @@ class CropEngine {
       r.y1 > this.stageH + 0.01
     )
       return false
-    if (this.fill) return true
+    const bounds = this.bounds()
     const pts = [
       { x: r.x0, y: r.y0 },
       { x: r.x1, y: r.y0 },
@@ -1675,7 +1683,8 @@ class CropEngine {
     return pts.every((p) => {
       const b = this.toBox(p, g.T, g.s, this.v.rot)
       return (
-        Math.abs(b.x) <= this.w / 2 + 0.01 && Math.abs(b.y) <= this.h / 2 + 0.01
+        Math.abs(b.x) <= bounds.w / 2 + 0.01 &&
+        Math.abs(b.y) <= bounds.h / 2 + 0.01
       )
     })
   }

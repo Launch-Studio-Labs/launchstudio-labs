@@ -81,7 +81,7 @@ const HOW_IT_WORKS = [
   },
   {
     title: "Fill past the edges with AI",
-    body: "Turn on AI fill to zoom out or turn past the photo. When you let go, an image model on your server paints the empty parts, and they fade in from the photo's edges.",
+    body: "Turn on AI fill to zoom out or turn past the photo, up to a quarter of its short side on each side. When you let go, an image model on your server paints the empty parts, and they fade in from the photo's edges.",
   },
 ]
 
@@ -271,8 +271,8 @@ export function ImageCropperShowcase({ skill }: { skill: string }) {
           <p className="text-sm leading-normal text-pretty text-body">
             A photo cropper with a straighten dial. When you turn the photo, it
             grows just enough to cover the frame, so you never see an empty
-            corner. With AI fill on, you can go past the edges and an image
-            model fills in the rest.
+            corner. With AI fill on, you can go a little past the edges and an
+            image model fills in the rest.
           </p>
         </header>
         <ImageCropperDemo />

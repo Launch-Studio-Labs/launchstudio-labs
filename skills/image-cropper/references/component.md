@@ -63,6 +63,6 @@ requests (a newer crop replaced them) are ignored; pass `signal` to `fetch`.
 - Quarter turn, flip, reset, aspect presets.
 - Export: the file has the crop's size (or `maxSize`) and looks like the
   frame.
-- With AI fill: zoom out past the edges, let go, the empty parts shimmer
-  and then fill; without a key, the stage says so and nothing breaks.
+- With AI fill: zoom out past the edges (it stops a quarter of the photo's
+  short side out), let go, the empty parts shimmer and then fill; without a key, the stage says so and nothing breaks.
 - Reduced motion: no springs or sheen, everything lands at once.

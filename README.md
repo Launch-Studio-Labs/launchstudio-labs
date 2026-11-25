@@ -103,7 +103,8 @@ https://labs.launchstudio.space/image-cropper (`/playground/image-cropper`).
 ```
 
 **AI fill** (optional): pass `generateFill` and an "AI fill" switch appears.
-With it on, you can zoom out or turn past the photo's edges; when you let go
+With it on, you can zoom out or turn past the photo's edges, up to a quarter
+of its short side on each side; when you let go
 the empty parts shimmer, an image model on your server fills them, and they
 resolve in under the photo. The demo wires it to `app/api/image-fill`
 (OpenAI image edits, `OPENAI_API_KEY` on the server, `OPENAI_IMAGE_MODEL`
