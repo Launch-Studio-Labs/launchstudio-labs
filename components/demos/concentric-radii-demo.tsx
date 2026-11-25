@@ -10,7 +10,6 @@ import {
 import { DemoFrame } from "@/components/demos/demo-frame"
 import { clamp } from "@/components/demos/measuring"
 import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
   naiveConcentricRadius,
@@ -137,7 +136,7 @@ function Panel({
   good: boolean
 } & ComponentProps<typeof Field>) {
   return (
-    <div className="flex w-fit flex-col gap-3 rounded-lg border border-border bg-background p-4">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 self-stretch rounded-lg border border-border bg-background p-4">
       <div className="flex items-center gap-2 border-b border-black/10 pb-3 dark:border-white/10">
         {/* size-4 pairs with text-sm: the icon matches the cap height. */}
         {good ? (
@@ -217,23 +216,14 @@ export function ConcentricRadiiDemo({
   const [outer, setOuter] = useState(DEFAULT_OUTER)
   const [padding, setPadding] = useState(DEFAULT_PADDING)
   const [size, setSize] = useState(DEFAULT_SIZE)
-  const [pill, setPill] = useState(false)
 
-  // A pill is half its own height; the field is the button plus the padding.
-  const outerRadius = pill ? PILL : outer
-  const naive = pill
-    ? naiveConcentricRadius((size + padding * 2) / 2, padding)
-    : naiveConcentricRadius(outer, padding)
-  const visual = visualConcentricRadius({
-    outer: pill ? "full" : outer,
-    padding,
-    size,
-  })
+  const naive = naiveConcentricRadius(outer, padding)
+  const visual = visualConcentricRadius({ outer, padding, size })
 
   // Both report what is drawn: a radius past half the button is a circle.
   const naiveShown = Math.min(naive, size / 2)
   const visualShown = Math.min(visual, size / 2)
-  const field = { outer: outerRadius, padding, size }
+  const field = { outer, padding, size }
 
   return (
     <div
@@ -245,14 +235,8 @@ export function ConcentricRadiiDemo({
           label="Outer"
           value={outer}
           range={OUTER_RANGE}
-          disabled={pill}
           onChange={setOuter}
-        >
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-muted-foreground select-none">
-            <Switch size="sm" checked={pill} onCheckedChange={setPill} />
-            Pill
-          </label>
-        </ControlRow>
+        />
         <ControlRow
           label="Padding"
           value={padding}
@@ -268,19 +252,14 @@ export function ConcentricRadiiDemo({
       </div>
 
       <DemoFrame className="max-sm:w-full max-sm:min-w-0">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-4 self-stretch sm:flex-row sm:items-center sm:justify-between">
           <Panel
             label="Naive"
             good={naiveShown >= visualShown - 0.05}
-            inner={pill ? PILL : naiveShown}
+            inner={naiveShown}
             {...field}
           />
-          <Panel
-            label="Visual"
-            good
-            inner={pill ? PILL : visualShown}
-            {...field}
-          />
+          <Panel label="Visual" good inner={visualShown} {...field} />
         </div>
       </DemoFrame>
     </div>

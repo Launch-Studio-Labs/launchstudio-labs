@@ -1,5 +1,10 @@
 import { CodeBlock, Command } from "@/components/code-block"
 import { ConcentricRadiiDemo } from "@/components/demos/concentric-radii-demo"
+import {
+  HandFormula,
+  HandFormulaLine,
+  HandTerm,
+} from "@/components/docs/hand-formula"
 import { PageHeader } from "@/components/page-header"
 import { Prose } from "@/components/prose"
 import { Separator } from "@/components/ui/separator"
@@ -9,18 +14,14 @@ const INTRO = [
   "Put a rounded thing inside another rounded thing and the usual advice is to **subtract the padding from the outer radius**. Both corners then share a centre, so the gap between them stays even all the way round.",
 ]
 
-const NAIVE_FORMULA = "inner = max(0, outer - padding)"
-
 const BREAK = [
-  "That holds while the radii are big. On small ones it runs out: a 7.2px field with a 4px inset leaves its button at 3.2px, and an 8px textarea with an 8px inset leaves it at **0px: a square corner inside a round one**.",
-  "The math is right. It just looks wrong, because the eye doesn't find centres, it compares corners. So the fix is to keep the math and **never let the inner corner go sharp while the outer one is curved**.",
+  "That works while the radii are big but on small ones the visuals starts to break, and you get sharp corners inside round ones.",
+  "The math is right. It just looks wrong. Your eye doesn't find centres, it compares corners. The easiest fix is to keep the math and just **never let the inner corner go sharp while the outer one is curved**.",
 ]
 
-const RULE_FORMULA = `inner = outer === 0
-  ? 0
-  : min(outer, max(outer - padding, outer * 0.5, 5), size / 2)`
-
-const RULE_LEAD = ["So keep the concentric value and **put a floor under it**:"]
+const RULE_LEAD = [
+  "To achieve this we keep the concentric value and **put a floor under it**:",
+]
 
 const RULE = [
   "There are two floors. **Half the outer radius** keeps the inner corner in the same family as the outer one. **5px** is roughly where a corner starts to read as round: the arc sits about 2px in from where the corner would be. Big radii clear both, so they stay truly concentric.",
@@ -76,7 +77,13 @@ export function ConcentricRadiiShowcase() {
 
       <div className="labs-enter labs-enter-delay-2 flex flex-col gap-6">
         <Prose paragraphs={INTRO} />
-        <CodeBlock code={NAIVE_FORMULA} language="ts" />
+        <HandFormula className="px-2 [word-spacing:4px]">
+          <HandFormulaLine>
+            <HandTerm term="inner">inner</HandTerm> ={" "}
+            <HandTerm term="outer">outer</HandTerm> −{" "}
+            <HandTerm term="padding">padding</HandTerm>
+          </HandFormulaLine>
+        </HandFormula>
         <Prose paragraphs={BREAK} />
       </div>
 
@@ -86,7 +93,17 @@ export function ConcentricRadiiShowcase() {
 
       <div className="labs-enter labs-enter-delay-3 flex flex-col gap-6">
         <Prose paragraphs={RULE_LEAD} />
-        <CodeBlock code={RULE_FORMULA} language="ts" />
+        <HandFormula>
+          <HandFormulaLine>
+            base = max(<HandTerm term="outer">outer</HandTerm> −{" "}
+            <HandTerm term="padding">padding</HandTerm>,{" "}
+            <HandTerm term="outer">outer</HandTerm> / 2, 5)
+          </HandFormulaLine>
+          <HandFormulaLine>
+            <HandTerm term="inner">inner</HandTerm> = min(base,{" "}
+            <HandTerm term="outer">outer</HandTerm>, size / 2)
+          </HandFormulaLine>
+        </HandFormula>
         <Prose paragraphs={RULE} />
       </div>
 
