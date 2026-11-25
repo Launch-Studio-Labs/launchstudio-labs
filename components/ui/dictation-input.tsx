@@ -1,21 +1,22 @@
 "use client"
 
 /**
- * Voice Input — a normal text field with a microphone in its corner.
+ * Dictation Input — a normal text field with a microphone in its corner.
  *
  * The field stays a field: people type into it as usual. The mic is the
  * extra. Recording plays Voice Glow along the field and shows "Listening",
  * the clock and the microphone under it; stopping sends the take for
  * transcription and writes the text back into the same field. Once there is a
  * recording, the corner button turns into a reset (with a confirm), a recap
- * player sits under the field, and a line pinned inside the field lets the
- * person choose whether their recording is sent at all.
+ * player sits under the field, and a line pinned inside the field says
+ * whether recordings are sent (and, by default, lets the person choose).
+ * With `recordingPolicy="never"` there is neither player nor line.
  *
- * Wrap your own shadcn `Input` / `Textarea`, or leave `children` out and it
- * renders one.
+ * Wrap your own shadcn `Input` / `Textarea`; `recordingPolicy` decides
+ * whether the person chooses about sending recordings, or the app does.
  *
- * Part of the Launch Studio Labs Voice Input component.
- * https://labs.launchstudio.space/voice-input
+ * Part of the Launch Studio Labs Dictation Input component.
+ * https://labs.launchstudio.space/dictation-input
  *
  * The glow is Voice Glow by Jakub Antalik — https://libraries.dev/voice —
  * used through the `voice-glow` npm package under the MIT License,
@@ -64,30 +65,26 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  LiveWaveform,
-  VoicePlayer,
-  type VoiceWaveformStyle,
-} from "@/components/ui/voice-waveform"
+import { LiveWaveform, VoicePlayer } from "@/components/ui/voice-waveform"
 import {
   useVoiceRecorder,
+  type VoiceRecorder,
   type VoiceRecorderProblem,
+  type VoiceRecorderStatus,
   type VoiceTake,
 } from "@/hooks/use-voice-recorder"
 import { cn } from "@/lib/utils"
 import { formatElapsed, type AudioInput } from "@/lib/voice-recording"
 
 export type { VoiceTake } from "@/hooks/use-voice-recorder"
-export type { VoiceWaveformStyle } from "@/components/ui/voice-waveform"
 
 // ── Public types ──
 
 /**
- * What happens when a take ends.
- * - `auto`: it goes straight to `onTranscribe` (the portal behaviour)
- * - `manual`: it is held under the field with playback, Send and Discard
+ * Whether recordings are sent along with the transcript: the person's call
+ * (`ask`), or fixed by the app (`always` / `never`).
  */
-export type VoiceSubmitMode = "auto" | "manual"
+export type VoiceRecordingPolicy = "ask" | "always" | "never"
 
 /**
  * How the transcript lands in the field.
@@ -101,10 +98,10 @@ export type VoiceInsertMode = "replace" | "append"
  * moving in its own way while the take is transcribed.
  * - `glow`: Voice Glow along the field (the portal's)
  * - `level`: a row of bars across the field that rise with the voice
- * - `bars` / `wave` / `dots`: a live waveform along the bottom of the field
+ * - `dots`: a scrolling history of the voice as dots along the field
  * - `none`: nothing
  */
-export type VoiceFieldEffect = "glow" | "level" | VoiceWaveformStyle | "none"
+export type VoiceFieldEffect = "glow" | "level" | "dots" | "none"
 
 /**
  * The mic button's corner radius.
@@ -220,7 +217,7 @@ export interface VoiceResult {
   sentRecording: boolean
 }
 
-export type VoiceInputProblem =
+export type DictationInputProblem =
   | VoiceRecorderProblem
   | "silent"
   | "empty"
@@ -228,18 +225,13 @@ export type VoiceInputProblem =
   | "failed"
   | "delete-failed"
 
-export interface VoiceInputLabels {
+export interface DictationInputLabels {
   record: string
   stop: string
   preparing: string
   listening: string
   quiet: string
-  pause: string
-  paused: string
-  resume: string
   processing: string
-  send: string
-  discard: string
   retry: string
   reset: string
   resetTitle: string
@@ -256,7 +248,7 @@ export interface VoiceInputLabels {
   play: string
   pausePlayback: string
   position: string
-  problems: Record<VoiceInputProblem, string>
+  problems: Record<DictationInputProblem, string>
   announce: {
     recording: (mic: string) => string
     done: string
@@ -268,18 +260,13 @@ export interface VoiceInputLabels {
 }
 
 /** The portal's copy, minus anything questionnaire-specific. */
-export const voiceInputLabels: VoiceInputLabels = {
+export const dictationInputLabels: DictationInputLabels = {
   record: "Record voice answer",
   stop: "Stop and submit recording",
   preparing: "Getting the microphone ready…",
   listening: "Listening",
   quiet: "No sound yet",
-  pause: "Pause",
-  paused: "Paused",
-  resume: "Resume",
   processing: "Writing your answer…",
-  send: "Send",
-  discard: "Discard",
   retry: "Try again",
   reset: "Reset recording & answer",
   resetTitle: "Reset this answer?",
@@ -336,9 +323,9 @@ function nextTakeId() {
 }
 
 /** Problems where re-sending the same take can succeed. */
-const RETRYABLE = new Set<VoiceInputProblem>(["failed", "error"])
+const RETRYABLE = new Set<DictationInputProblem>(["failed", "error"])
 /** Problems where the microphone itself is the likely culprit. */
-const MIC_PROBLEMS = new Set<VoiceInputProblem>([
+const MIC_PROBLEMS = new Set<DictationInputProblem>([
   "empty",
   "silent",
   "no-device",
@@ -357,46 +344,17 @@ const NEUTRAL_BAND = {
   dark: { core: "#ffffff", above: "#d4d4d4", mid: "#a3a3a3", below: "#737373" },
 } as const
 
-/**
- * The field the mic sits in when you don't bring one: the portal's Input and
- * Textarea, so the default looks the same wherever it is installed.
- */
-const FIELD_BASE =
-  "w-full min-w-0 rounded-lg border border-transparent bg-input/50 px-3 text-base transition-[color,box-shadow,background-color] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
-const INPUT_CLASS = cn(FIELD_BASE, "h-9 py-1")
-const TEXTAREA_CLASS = cn(
-  FIELD_BASE,
-  "flex field-sizing-content min-h-24 resize-none py-3"
-)
-
-export type VoiceFieldProps = Omit<
-  ComponentProps<"textarea">,
-  "value" | "defaultValue" | "onChange" | "children" | "ref"
->
-
-export interface VoiceInputProps extends Omit<
-  ComponentProps<"div">,
-  "onChange" | "children" | "defaultValue"
-> {
+/** The props Dictation Input adds; everything else goes to the root `div`. */
+export interface DictationInputOwnProps {
   /**
-   * The field to put the mic on — a shadcn `Input` or `Textarea`. Leave it
-   * out and the component renders one (see `multiline`).
+   * The field to put the mic on: your shadcn `Input` or `Textarea` (or any
+   * element with `data-slot="input"` / `"textarea"`).
    */
-  children?: ReactNode
-  /** The built-in field is a textarea. Ignored when you pass `children`. */
-  multiline?: boolean
-  /** Text of the built-in field (controlled). */
+  children: ReactNode
+  /** The field's text — the same value the field shows. */
   value?: string
-  defaultValue?: string
-  /**
-   * The field's text changed — typing in the built-in field, or a
-   * transcript written in. With `children`, pass `value` too and this is
-   * called with the text after a transcript lands.
-   */
+  /** A transcript was written in (or the answer reset): the field's new text. */
   onValueChange?: (value: string) => void
-  placeholder?: string
-  /** Props for the built-in field: id, name, aria-*, maxLength… */
-  fieldProps?: VoiceFieldProps
   /** @default "replace" */
   insert?: VoiceInsertMode
 
@@ -416,41 +374,43 @@ export interface VoiceInputProps extends Omit<
   onDeleteRecording?: (result: VoiceResult) => void | Promise<void>
   /** Recording started or stopped — e.g. to block the mic on other fields. */
   onActiveChange?: (active: boolean) => void
-  /** @default "auto" */
-  submit?: VoiceSubmitMode
 
   // Privacy
-  /** Controlled: whether audio is sent along with the transcript. */
+  /**
+   * Whether recordings go along with the transcript.
+   * - `"ask"`: the person decides, with a line inside the field
+   * - `"always"`: always sent; the line stays as a notice, without the switch
+   * - `"never"`: never sent — transcribed, then thrown away; no line
+   * @default "ask"
+   */
+  recordingPolicy?: VoiceRecordingPolicy
+  /**
+   * Controlled: the person's choice, with `recordingPolicy="ask"`. Starts on
+   * sending when left out.
+   */
   sendRecording?: boolean
-  /** @default true */
-  defaultSendRecording?: boolean
   onSendRecordingChange?: (send: boolean) => void
 
   // Recording
-  /** Pause/resume in the line under the field. @default false */
-  allowPause?: boolean
-  /** Browser automatic gain control. @default true */
-  autoGainControl?: boolean
   /** @default 300000 (5 minutes) */
   maxDurationMs?: number
-  /** @default 700 */
-  minDurationMs?: number
   /** Replaces getUserMedia — tests, demos, custom sources. */
   getStream?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
   /** Disables the mic (the field stays usable). */
   disabled?: boolean
-
-  // Parts
-  /** @default true */
-  showMicPicker?: boolean
-  /** @default true */
-  showTimer?: boolean
-  /** The recap player under the field. @default true */
-  showPlayback?: boolean
-  /** The send / don't-send line inside the field. @default true */
-  showRecordingToggle?: boolean
-  /** Ask before resetting. @default true */
-  confirmReset?: boolean
+  /**
+   * A simulated voice instead of the microphone, for docs, design reviews and
+   * screenshots. No microphone is ever opened.
+   *
+   * - `"recording"` holds the field mid-take: the effect, the stop button,
+   *   "Listening" and the clock run; stop and Escape do nothing.
+   * - `"interactive"` runs the whole flow: the mic starts a simulated take,
+   *   and stop hands a generated recording to `onTranscribe` as usual.
+   * - `"recorded"` is `"interactive"` that starts finished: a generated
+   *   recording goes to `onTranscribe` on mount, so the field shows the
+   *   answer, the player and the recording line.
+   */
+  preview?: "recording" | "interactive" | "recorded"
 
   // Look
   /**
@@ -458,98 +418,82 @@ export interface VoiceInputProps extends Omit<
    * the take is transcribed. @default "glow"
    */
   fieldEffect?: VoiceFieldEffect
-  /** Waveform in the recap player. @default "bars" */
-  playerWaveform?: VoiceWaveformStyle
-  /** Corner radius of the field in px. Default: the field's own. */
-  radius?: number
   /** The mic button's corner radius. @default "auto" (visually concentric) */
   buttonRadius?: VoiceButtonRadius
-  /** Voice Glow palette. @default "mono" (neutral) */
+  /** The palette for the glow and every field effect. @default "mono" (neutral) */
   glowVariant?: VoiceBeamColorVariant
-  /** Your own glow colours, centre first — overrides `glowVariant`. */
-  glowColors?: string[]
-  /** 0–1. @default 1 */
-  glowStrength?: number
-  /** Follows the `.dark` class on <html> unless set. */
-  theme?: "light" | "dark"
 
-  labels?: Partial<Omit<VoiceInputLabels, "problems" | "announce">> & {
-    problems?: Partial<VoiceInputLabels["problems"]>
-    announce?: Partial<VoiceInputLabels["announce"]>
+  labels?: Partial<Omit<DictationInputLabels, "problems" | "announce">> & {
+    problems?: Partial<DictationInputLabels["problems"]>
+    announce?: Partial<DictationInputLabels["announce"]>
   }
 }
 
-export function VoiceInput({
+export interface DictationInputProps
+  extends
+    Omit<
+      ComponentProps<"div">,
+      keyof DictationInputOwnProps | "onChange" | "defaultValue"
+    >,
+    DictationInputOwnProps {}
+
+export function DictationInput({
   children,
-  multiline = false,
   value: valueProp,
-  defaultValue = "",
   onValueChange,
-  placeholder,
-  fieldProps,
   insert = "replace",
   onTranscribe,
   onResult,
   onReset,
   onDeleteRecording,
   onActiveChange,
-  submit = "auto",
+  recordingPolicy = "ask",
   sendRecording: sendRecordingProp,
-  defaultSendRecording = true,
   onSendRecordingChange,
-  allowPause = false,
-  autoGainControl = true,
   maxDurationMs,
-  minDurationMs,
   getStream,
   disabled = false,
-  showMicPicker = true,
-  showTimer = true,
-  showPlayback = true,
-  showRecordingToggle = true,
-  confirmReset = true,
+  preview,
   fieldEffect = "glow",
-  playerWaveform = "bars",
-  radius,
   buttonRadius = "auto",
   glowVariant = "mono",
-  glowColors,
-  glowStrength = 1,
-  theme: themeProp,
   labels: labelOverrides,
   className,
   style,
   onKeyDown,
   ...props
-}: VoiceInputProps) {
-  const labels: VoiceInputLabels = {
-    ...voiceInputLabels,
+}: DictationInputProps) {
+  const labels: DictationInputLabels = {
+    ...dictationInputLabels,
     ...labelOverrides,
-    problems: { ...voiceInputLabels.problems, ...labelOverrides?.problems },
-    announce: { ...voiceInputLabels.announce, ...labelOverrides?.announce },
+    problems: { ...dictationInputLabels.problems, ...labelOverrides?.problems },
+    announce: { ...dictationInputLabels.announce, ...labelOverrides?.announce },
   }
-  const theme = useDocumentTheme(themeProp)
+  const theme = useDocumentTheme()
   const reduced = useReducedMotion()
 
-  const [textState, setTextState] = useState(defaultValue)
+  const [textState, setTextState] = useState("")
   const text = valueProp ?? textState
-  const [sendState, setSendState] = useState(defaultSendRecording)
-  const sendRecording = sendRecordingProp ?? sendState
+  const [sendState, setSendState] = useState(true)
+  const sendRecording =
+    recordingPolicy === "always"
+      ? true
+      : recordingPolicy === "never"
+        ? false
+        : (sendRecordingProp ?? sendState)
 
   const [processing, setProcessing] = useState(false)
-  /** A finished take waiting for Send (`submit="manual"`). */
-  const [held, setHeld] = useState<VoiceTake | null>(null)
   /** The last take that failed server-side, kept so "Try again" can resend it. */
   const [lastTake, setLastTake] = useState<VoiceTake | null>(null)
   /** This field's recording, once a take has produced text. */
   const [result, setResult] = useState<VoiceResult | null>(null)
-  /** The take behind `result` (or `held`), played back from memory. */
+  /** The take behind `result`, played back from memory. */
   const [localAudio, setLocalAudio] = useState<{
     id: number
     blob: Blob
     durationMs: number
   } | null>(null)
-  const [sendProblem, setSendProblem] = useState<VoiceInputProblem | null>(null)
+  const [sendProblem, setSendProblem] = useState<DictationInputProblem | null>(null)
   const [announcement, setAnnouncement] = useState("")
   const [noteSpace, setNoteSpace] = useState(0)
 
@@ -563,33 +507,30 @@ export function VoiceInput({
   /** Keep focus on the corner when the button there is swapped out. */
   const cornerFocusRef = useRef(false)
 
-  const recorder = useVoiceRecorder({
-    autoGainControl,
+  function handleTake(take: VoiceTake) {
+    setLastTake(null)
+    void send(take)
+  }
+
+  const realRecorder = useVoiceRecorder({
     maxDurationMs,
-    minDurationMs,
     getStream,
-    onTake: (take) => {
-      setLastTake(null)
-      if (submit === "manual" && onTranscribe) {
-        setHeld(take)
-        setLocalAudio({
-          id: nextTakeId(),
-          blob: take.blob,
-          durationMs: take.durationMs,
-        })
-        return
-      }
-      void send(take)
-    },
+    onTake: handleTake,
   })
+  // In preview the real recorder stays idle and never opens the mic; the
+  // field reads a simulated one instead.
+  const simulated = useSimulatedRecorder(preview, reduced, handleTake)
+  const recorder: VoiceRecorder = simulated
+    ? { ...realRecorder, ...simulated }
+    : realRecorder
   const { status, getLevel } = recorder
   const recording = status === "recording"
   const paused = status === "paused"
   const live = recording || paused
   const busy = status === "requesting" || status === "stopping" || processing
   const idle = !live && !busy
-  const problem: VoiceInputProblem | null = recorder.problem ?? sendProblem
-  const recorded = result !== null || held !== null
+  const problem: DictationInputProblem | null = recorder.problem ?? sendProblem
+  const recorded = result !== null
 
   // Cancel an in-flight send when the component goes away.
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -708,11 +649,13 @@ export function VoiceInput({
     const observer = new ResizeObserver(measure)
     if (field) observer.observe(field)
     return () => observer.disconnect()
-  }, [buttonRadius, radius, multiline, children])
+  }, [buttonRadius, children])
 
   // Track the note's real height (copy length, language, width): it becomes
   // the field's bottom padding so typed text always ends above it.
-  const showNote = showRecordingToggle && Boolean(onTranscribe) && recorded
+  // Nothing to disclose when recordings are never sent.
+  const showNote =
+    recordingPolicy !== "never" && Boolean(onTranscribe) && recorded
   useEffect(() => {
     const element = noteRef.current
     if (!showNote || !element) return
@@ -744,7 +687,7 @@ export function VoiceInput({
   }, [showNote, noteSpace])
 
   // The corner swaps mic ↔ reset; keep keyboard focus there when it does.
-  const cornerKey = idle && result && !held ? "reset" : "mic"
+  const cornerKey = idle && result ? "reset" : "mic"
   useEffect(() => {
     const corner = cornerRef.current
     if (!cornerFocusRef.current || !corner) return
@@ -827,7 +770,6 @@ export function VoiceInput({
       }
       setText(value)
       setResult(next)
-      setHeld(null)
       setLastTake(null)
       setLocalAudio({
         id: nextTakeId(),
@@ -862,11 +804,6 @@ export function VoiceInput({
     setSendProblem(null)
     setAnnouncement("")
     setLastTake(null)
-    if (held) {
-      // A new take replaces the one waiting for Send.
-      setHeld(null)
-      setLocalAudio(null)
-    }
     await recorder.start()
   }
 
@@ -879,12 +816,6 @@ export function VoiceInput({
     abortRef.current?.abort()
     abortRef.current = null
     setProcessing(false)
-    setAnnouncement(labels.announce.cancelled)
-  }
-
-  function discardHeld() {
-    setHeld(null)
-    setLocalAudio(null)
     setAnnouncement(labels.announce.cancelled)
   }
 
@@ -957,7 +888,6 @@ export function VoiceInput({
   const canRetry =
     problem !== null && RETRYABLE.has(problem) && lastTake !== null
   const showMicMenu =
-    showMicPicker &&
     recorder.inputs.length > 0 &&
     (live || (problem !== null && MIC_PROBLEMS.has(problem)))
   const micMenu = showMicMenu ? (
@@ -968,43 +898,17 @@ export function VoiceInput({
       labels={labels}
     />
   ) : null
+  // With recordings never sent there is nothing kept to play back: the
+  // answer is the text alone.
   const playback =
-    showPlayback && idle && localAudio && (result || held) ? localAudio : null
+    recordingPolicy !== "never" && idle && localAudio && result
+      ? localAudio
+      : null
   const playerLabels = {
     play: labels.play,
     pause: labels.pausePlayback,
     position: labels.position,
   }
-
-  // The built-in field: the portal's Input / Textarea.
-  const fieldStyle =
-    radius !== undefined
-      ? { borderRadius: radius, ...fieldProps?.style }
-      : fieldProps?.style
-  const field =
-    children ??
-    (multiline ? (
-      <textarea
-        data-slot="textarea"
-        placeholder={placeholder}
-        {...fieldProps}
-        style={fieldStyle}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        className={cn(TEXTAREA_CLASS, fieldProps?.className)}
-      />
-    ) : (
-      <input
-        data-slot="input"
-        type="text"
-        placeholder={placeholder}
-        {...(fieldProps as ComponentProps<"input">)}
-        style={fieldStyle}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        className={cn(INPUT_CLASS, fieldProps?.className)}
-      />
-    ))
 
   // The send-recordings note lives inside the field, pinned bottom-left, and
   // only once this field has a recording. Its measured height becomes the
@@ -1018,14 +922,21 @@ export function VoiceInput({
       className="pointer-events-none absolute inset-x-0 bottom-0 z-[4] px-3 pb-2.5"
     >
       <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
-        {sendRecording ? labels.recordingsSent : labels.recordingsWithheld}{" "}
-        <button
-          type="button"
-          onClick={() => void toggleSendRecording()}
-          className="pointer-events-auto rounded-sm font-medium text-foreground underline decoration-foreground/25 underline-offset-2 transition-[text-decoration-color] outline-none hover:decoration-foreground/60 focus-visible:ring-3 focus-visible:ring-ring/40"
-        >
-          {sendRecording ? labels.withholdRecordings : labels.sendRecordings}
-        </button>
+        {sendRecording ? labels.recordingsSent : labels.recordingsWithheld}
+        {recordingPolicy === "ask" && (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={() => void toggleSendRecording()}
+              className="pointer-events-auto rounded-sm font-medium text-foreground underline decoration-foreground/25 underline-offset-2 transition-[text-decoration-color] outline-none hover:decoration-foreground/60 focus-visible:ring-3 focus-visible:ring-ring/40"
+            >
+              {sendRecording
+                ? labels.withholdRecordings
+                : labels.sendRecordings}
+            </button>
+          </>
+        )}
       </p>
     </div>
   ) : null
@@ -1035,19 +946,15 @@ export function VoiceInput({
    * all of them. `mono` keeps the theme's neutral ink (`--voice-wave`).
    */
   const effectColors =
-    glowColors ??
-    (glowVariant === "mono" ? undefined : voicePalettes[glowVariant][theme])
+    glowVariant === "mono" ? undefined : voicePalettes[glowVariant][theme]
 
   /** Voice Glow's look, from the palette props. */
   const glowProps = {
     theme,
     colorVariant: glowVariant,
-    colors: glowColors,
     // Voice Glow's band keeps its own tint (pink on light) whatever the
     // palette; a neutral glow needs a neutral band too.
-    bandColors:
-      glowVariant === "mono" && !glowColors ? NEUTRAL_BAND[theme] : undefined,
-    strength: glowStrength,
+    bandColors: glowVariant === "mono" ? NEUTRAL_BAND[theme] : undefined,
   }
 
   const state = live
@@ -1056,16 +963,14 @@ export function VoiceInput({
       ? "processing"
       : busy
         ? status
-        : held
-          ? "held"
-          : result
-            ? "recorded"
-            : "idle"
+        : result
+          ? "recorded"
+          : "idle"
 
   return (
     <div
       ref={wrapperRef}
-      data-slot="voice-input"
+      data-slot="dictation-input"
       data-state={state}
       onKeyDown={handleKeyDown}
       style={{ ...noteSpaceStyle, ...style }}
@@ -1085,12 +990,12 @@ export function VoiceInput({
     >
       <VoiceBeam
         stream={recording ? recorder.stream : null}
+        level={simulated ? getLevel : undefined}
         motion={motion}
         type="default"
         {...glowProps}
         active={fieldEffect === "glow" && (live || processing)}
         paused={paused}
-        borderRadius={radius}
         className="w-full"
         css={`
           [data-voice-beam="{id}"]:not([data-active]):not([data-fading]) {
@@ -1098,7 +1003,7 @@ export function VoiceInput({
           }
         `}
       >
-        {field}
+        {children}
         {sendNote}
         {showFieldVisual && (
           <FieldVisual
@@ -1140,7 +1045,6 @@ export function VoiceInput({
         {cornerKey === "reset" ? (
           <ResetControl
             length={formatElapsed(result?.durationMs ?? 0)}
-            confirm={confirmReset}
             labels={labels}
             onConfirm={() => void reset()}
           />
@@ -1190,26 +1094,11 @@ export function VoiceInput({
               recorder.quiet && !paused && "font-semibold text-foreground"
             )}
           >
-            {paused
-              ? labels.paused
-              : recorder.quiet
-                ? labels.quiet
-                : labels.listening}
+            {recorder.quiet ? labels.quiet : labels.listening}
           </span>
-          {showTimer && (
-            <span className="shrink-0 text-muted-foreground/70 tabular-nums">
-              {formatElapsed(recorder.elapsedMs)}
-            </span>
-          )}
-          {allowPause && (
-            <button
-              type="button"
-              onClick={paused ? recorder.resume : recorder.pause}
-              className={TEXT_BUTTON}
-            >
-              {paused ? labels.resume : labels.pause}
-            </button>
-          )}
+          <span className="shrink-0 text-muted-foreground/70 tabular-nums">
+            {formatElapsed(recorder.elapsedMs)}
+          </span>
           <span className="ml-auto flex min-w-0 items-center">{micMenu}</span>
         </div>
       )}
@@ -1220,38 +1109,12 @@ export function VoiceInput({
         </p>
       )}
 
-      {held && idle && (
-        <div className="mt-2.5 flex items-center gap-2">
-          {playback ? (
-            <VoicePlayer
-              key={playback.id}
-              source={playback.blob}
-              durationMs={playback.durationMs}
-              waveform={playerWaveform}
-              labels={playerLabels}
-              className="min-w-0 flex-1"
-            />
-          ) : (
-            <span className="flex-1 text-xs text-muted-foreground tabular-nums">
-              {formatElapsed(held.durationMs)}
-            </span>
-          )}
-          <Button variant="ghost" size="xs" onClick={discardHeld}>
-            {labels.discard}
-          </Button>
-          <Button size="xs" onClick={() => void send(held)}>
-            {labels.send}
-          </Button>
-        </div>
-      )}
-
-      {!held && playback && (
+      {playback && (
         <div className="mt-2.5">
           <VoicePlayer
             key={playback.id}
             source={playback.blob}
             durationMs={playback.durationMs}
-            waveform={playerWaveform}
             labels={playerLabels}
           />
         </div>
@@ -1279,13 +1142,15 @@ export function VoiceInput({
       )}
 
       <span className="sr-only" aria-live="polite">
-        {recording
-          ? labels.announce.recording(
-              recorder.activeInput?.label ?? labels.microphone
-            )
-          : processing
-            ? labels.processing
-            : announcement}
+        {simulated
+          ? null
+          : recording
+            ? labels.announce.recording(
+                recorder.activeInput?.label ?? labels.microphone
+              )
+            : processing
+              ? labels.processing
+              : announcement}
       </span>
     </div>
   )
@@ -1316,14 +1181,14 @@ function FieldVisual({
   processing,
   colors,
 }: VisualProps & {
-  visual: "level" | VoiceWaveformStyle
+  visual: "level" | "dots"
   processing: boolean
   colors?: readonly string[]
 }) {
   return (
     <div
       aria-hidden="true"
-      data-slot="voice-input-field-visual"
+      data-slot="dictation-input-field-visual"
       data-processing={processing || undefined}
       className={cn(
         "pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-full max-h-12 overflow-hidden rounded-b-[var(--voice-field-radius,0.5rem)] transition-opacity duration-200",
@@ -1343,17 +1208,13 @@ function FieldVisual({
         className={cn(
           "absolute inset-x-3 inset-y-1.5 h-auto text-[var(--voice-wave,var(--color-foreground))]",
           // A palette reads lighter than ink, so it gets a little more.
-          visual === "wave"
+          visual === "level"
             ? colors
-              ? "opacity-55"
-              : "opacity-35"
-            : visual === "level"
-              ? colors
-                ? "opacity-40"
-                : "opacity-25"
-              : colors
-                ? "opacity-30"
-                : "opacity-[0.16]"
+              ? "opacity-40"
+              : "opacity-25"
+            : colors
+              ? "opacity-30"
+              : "opacity-[0.16]"
         )}
       />
     </div>
@@ -1383,13 +1244,11 @@ const TEXT_BUTTON =
  */
 function ResetControl({
   length,
-  confirm,
   labels,
   onConfirm,
 }: {
   length: string
-  confirm: boolean
-  labels: VoiceInputLabels
+  labels: DictationInputLabels
   onConfirm: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -1407,20 +1266,6 @@ function ResetControl({
       aria-hidden="true"
     />
   )
-
-  if (!confirm) {
-    return (
-      <button
-        type="button"
-        aria-label={labels.reset}
-        title={labels.reset}
-        onClick={onConfirm}
-        className={className}
-      >
-        {icon}
-      </button>
-    )
-  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1485,7 +1330,7 @@ function MicMenu({
   inputs: AudioInput[]
   active: AudioInput | null
   onChoose: (deviceId: string) => void
-  labels: VoiceInputLabels
+  labels: DictationInputLabels
 }) {
   const current = active?.label ?? inputs[0]?.label ?? labels.microphone
   return (
@@ -1590,10 +1435,9 @@ function useReducedMotion() {
 }
 
 /** Light or dark, from the `.dark` class shadcn themes put on <html>. */
-function useDocumentTheme(override?: "light" | "dark") {
+function useDocumentTheme() {
   const [theme, setTheme] = useState<"light" | "dark">("light")
   useEffect(() => {
-    if (override) return
     const root = document.documentElement
     const update = () =>
       setTheme(root.classList.contains("dark") ? "dark" : "light")
@@ -1604,6 +1448,184 @@ function useDocumentTheme(override?: "light" | "dark") {
       window.clearTimeout(initial)
       observer.disconnect()
     }
-  }, [override])
-  return override ?? theme
+  }, [])
+  return theme
+}
+
+/**
+ * A voice level: syllables riding a phrase envelope, with a breath between
+ * phrases. `t` in seconds.
+ */
+function simulatedLevel(t: number) {
+  const phrase = Math.max(0, Math.sin(t * 0.9) + 0.55) / 1.55
+  const syllables =
+    Math.abs(Math.sin(t * 6.8)) * (0.7 + 0.3 * Math.sin(t * 2.3))
+  return Math.min(1, 0.06 + phrase * (0.25 + 0.6 * syllables))
+}
+
+/**
+ * A take for `preview="interactive"`: a soft hum shaped by the same
+ * envelope as the simulated level, as a 16 kHz mono WAV, so the recap player
+ * has something real to draw and play.
+ */
+function simulatedTakeBlob(durationMs: number) {
+  const rate = 16000
+  const count = Math.max(1, Math.round((rate * durationMs) / 1000))
+  const buffer = new ArrayBuffer(44 + count * 2)
+  const view = new DataView(buffer)
+  const text = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i++) {
+      view.setUint8(offset + i, value.charCodeAt(i))
+    }
+  }
+  text(0, "RIFF")
+  view.setUint32(4, 36 + count * 2, true)
+  text(8, "WAVE")
+  text(12, "fmt ")
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, rate, true)
+  view.setUint32(28, rate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  text(36, "data")
+  view.setUint32(40, count * 2, true)
+  for (let i = 0; i < count; i++) {
+    const t = i / rate
+    const pitch = 140 + 18 * Math.sin(t * 2.1)
+    const voice =
+      Math.sin(2 * Math.PI * pitch * t) * 0.6 +
+      Math.sin(4 * Math.PI * pitch * t) * 0.25 +
+      Math.sin(6 * Math.PI * pitch * t) * 0.15
+    const sample = voice * simulatedLevel(t) * 0.35
+    view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample)) * 0x7fff, true)
+  }
+  return new Blob([buffer], { type: "audio/wav" })
+}
+
+/**
+ * The recorder `preview` swaps in: the same shape as `useVoiceRecorder`'s,
+ * driven by a simulated voice. `"recording"` is mid-take from the start and
+ * never stops; `"interactive"` starts and stops like the real one and hands
+ * a generated take to `onTake`; `"recorded"` does the same, plus one take on
+ * mount. Reduced motion holds a steady level.
+ */
+function useSimulatedRecorder(
+  mode: "recording" | "interactive" | "recorded" | undefined,
+  reduced: boolean,
+  onTake: (take: VoiceTake) => void
+) {
+  const hold = mode === "recording"
+  const [status, setStatusState] = useState<VoiceRecorderStatus>(
+    hold ? "recording" : "idle"
+  )
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const statusRef = useRef(status)
+  /** Recorded time banked by pauses, and when the current run began. */
+  const bankedRef = useRef(0)
+  const runStartRef = useRef(0)
+  const onTakeRef = useRef(onTake)
+  useEffect(() => {
+    onTakeRef.current = onTake
+  })
+
+  function setStatus(next: VoiceRecorderStatus) {
+    statusRef.current = next
+    setStatusState(next)
+  }
+
+  function recordedMs() {
+    return (
+      bankedRef.current +
+      (runStartRef.current ? performance.now() - runStartRef.current : 0)
+    )
+  }
+
+  // "recording" starts its clock on mount.
+  useEffect(() => {
+    if (hold) runStartRef.current = performance.now()
+  }, [hold])
+
+  // "recorded" hands over a take on mount, as if one had just finished.
+  const recorded = mode === "recorded"
+  useEffect(() => {
+    if (!recorded) return
+    const durationMs = 9000
+    onTakeRef.current({
+      blob: simulatedTakeBlob(durationMs),
+      mimeType: "audio/wav",
+      durationMs,
+      silent: false,
+    })
+  }, [recorded])
+
+  useEffect(() => {
+    if (status !== "recording") return
+    const id = window.setInterval(() => setElapsedMs(recordedMs()), 250)
+    return () => window.clearInterval(id)
+  }, [status])
+
+  const getLevel = useCallback(() => {
+    if (statusRef.current !== "recording") return 0
+    return reduced ? 0.35 : simulatedLevel(performance.now() / 1000)
+  }, [reduced])
+
+  if (!mode) return null
+
+  return {
+    status,
+    problem: null,
+    stream: null,
+    analyser: null,
+    getLevel,
+    elapsedMs,
+    quiet: false,
+    inputs: [],
+    activeInput: null,
+    start: async () => {
+      if (hold || statusRef.current !== "idle") return false
+      bankedRef.current = 0
+      runStartRef.current = performance.now()
+      setElapsedMs(0)
+      setStatus("recording")
+      return true
+    },
+    stop: async () => {
+      const current = statusRef.current
+      if (hold || (current !== "recording" && current !== "paused")) {
+        return null
+      }
+      const durationMs = recordedMs()
+      bankedRef.current = 0
+      runStartRef.current = 0
+      setStatus("idle")
+      const take: VoiceTake = {
+        blob: simulatedTakeBlob(durationMs),
+        mimeType: "audio/wav",
+        durationMs,
+        silent: false,
+      }
+      onTakeRef.current(take)
+      return take
+    },
+    pause: () => {
+      if (hold || statusRef.current !== "recording") return
+      bankedRef.current = recordedMs()
+      runStartRef.current = 0
+      setElapsedMs(bankedRef.current)
+      setStatus("paused")
+    },
+    resume: () => {
+      if (hold || statusRef.current !== "paused") return
+      runStartRef.current = performance.now()
+      setStatus("recording")
+    },
+    cancel: async () => {
+      if (hold) return
+      bankedRef.current = 0
+      runStartRef.current = 0
+      setStatus("idle")
+    },
+  } satisfies Partial<VoiceRecorder>
 }

@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "shadow-plugin";
+@import "./typeset.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -266,5 +267,15 @@
   }
   .labs-enter-delay-4 {
     animation-delay: 300ms;
+  }
+}
+
+/* Typeset preset for the skill shown in a dialog: the docs' 14px body,
+   a touch tighter than an article. */
+@layer components {
+  .typeset-skill {
+    --typeset-size: 14px;
+    --typeset-leading: 1.65;
+    --typeset-flow: 1em;
   }
 }

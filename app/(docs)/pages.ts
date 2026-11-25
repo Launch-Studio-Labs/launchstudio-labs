@@ -7,7 +7,7 @@
  */
 export const docsPages = {
   "/": { title: "Empty state", section: "Library" },
-  "/voice-input": { title: "Voice Input", section: "Library" },
+  "/dictation-input": { title: "Dictation Input", section: "Library" },
   "/typography": { title: "Width & line height", section: "Practices" },
   "/concentric-radii": {
     title: "Visually concentric radii",
@@ -21,5 +21,5 @@ const SITE_NAME = "Launch Studio Labs"
 
 /** What the browser tab reads: the page's own title, then the site's. */
 export function docsTitle(href: DocsHref) {
-  return `${docsPages[href].title} — ${SITE_NAME}`
+  return `${docsPages[href].title} · ${SITE_NAME}`
 }

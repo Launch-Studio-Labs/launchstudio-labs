@@ -1,3 +1,5 @@
+import type { ReactNode } from "react"
+
 import { cn } from "@/lib/utils"
 
 /**
@@ -37,20 +39,25 @@ function emphasise(paragraph: string) {
 export function Prose({
   className,
   paragraphs,
+  children,
 }: {
   className?: string
-  paragraphs: readonly string[]
+  /** Plain strings, with `**bold**` and `` `code` `` markers… */
+  paragraphs?: readonly string[]
+  /** …or your own `<p>`s, when a paragraph needs a link or a component. */
+  children?: ReactNode
 }) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-[1lh] text-sm leading-normal text-body",
+        "flex flex-col gap-[1lh] text-sm leading-normal text-body [&_strong]:font-medium [&_strong]:text-foreground",
         className
       )}
     >
-      {paragraphs.map((paragraph) => (
+      {paragraphs?.map((paragraph) => (
         <p key={paragraph}>{emphasise(paragraph)}</p>
       ))}
+      {children}
     </div>
   )
 }

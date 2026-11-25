@@ -2,8 +2,8 @@
 
 ## Voice Glow
 
-The Voice Input component (`components/ui/voice-input.tsx`, registry item
-`voice-input`) uses **Voice Glow** by Jakub Antalik —
+The Dictation Input component (`components/ui/dictation-input.tsx`, registry item
+`dictation-input`) uses **Voice Glow** by Jakub Antalik —
 https://libraries.dev/voice, source https://github.com/Jakubantalik/Libraries.dev —
 through the `voice-glow` npm package. It is not vendored into this repository.
 

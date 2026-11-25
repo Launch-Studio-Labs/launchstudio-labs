@@ -1,4 +1,4 @@
-import { CodeBlock } from "@/components/code-block"
+import { CodeBlock, Command } from "@/components/code-block"
 import { ConcentricRadiiDemo } from "@/components/demos/concentric-radii-demo"
 import { PageHeader } from "@/components/page-header"
 import { Prose } from "@/components/prose"
@@ -12,7 +12,7 @@ const INTRO = [
 const NAIVE_FORMULA = "inner = max(0, outer - padding)"
 
 const BREAK = [
-  "That holds while the radii are big. On small ones it runs out: a 7.2px field with a 4px inset leaves its button at 3.2px, and an 8px textarea with an 8px inset leaves it at **0px — a square corner inside a round one**.",
+  "That holds while the radii are big. On small ones it runs out: a 7.2px field with a 4px inset leaves its button at 3.2px, and an 8px textarea with an 8px inset leaves it at **0px: a square corner inside a round one**.",
   "The math is right. It just looks wrong, because the eye doesn't find centres, it compares corners. So the fix is to keep the math and **never let the inner corner go sharp while the outer one is curved**.",
 ]
 
@@ -94,7 +94,7 @@ export function ConcentricRadiiShowcase() {
 
       <div className="labs-enter labs-enter-delay-3 flex flex-col gap-6">
         <Prose paragraphs={USE} />
-        <CodeBlock code={INSTALL} />
+        <Command text={INSTALL} />
         <Tabs defaultValue="ts">
           <TabsList>
             <TabsTrigger value="ts">TypeScript</TabsTrigger>

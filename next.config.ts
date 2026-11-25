@@ -15,7 +15,21 @@ const nextConfig: NextConfig = {
         // The default image optimizer needs a server. Preview assets are files.
         images: { unoptimized: true },
       }
-    : {}),
+    : {
+        // The same as public/_redirects, which serves the static preview.
+        async redirects() {
+          return [
+            ["/voice-input", "/dictation-input"],
+            ["/playground/voice-input", "/playground/dictation-input"],
+            ["/r/voice-input.json", "/r/dictation-input.json"],
+            ["/skills/voice-input/:path*", "/skills/dictation-input/:path*"],
+          ].map(([source, destination]) => ({
+            source,
+            destination,
+            permanent: true,
+          }))
+        },
+      }),
 }
 
 export default nextConfig

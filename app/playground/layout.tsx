@@ -8,7 +8,7 @@ import { PlaygroundShell } from "@/components/playground-shell"
  * is a workbench, not a page of the site.
  */
 export const metadata: Metadata = {
-  title: "Playground — Launch Studio Labs",
+  title: "Playground · Launch Studio Labs",
   robots: { index: false, follow: false },
 }
 

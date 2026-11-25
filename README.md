@@ -20,7 +20,7 @@ To use the components in your app, import them as follows:
 import { Button } from "@/components/ui/button";
 ```
 
-## Voice Input
+## Dictation Input
 
 A normal text input or textarea with a microphone in its corner — the
 layout of the Launch Studio portal's voice answers. People type as usual;
@@ -30,31 +30,30 @@ field.
 Afterwards the corner button resets the answer with a confirm, a recap player
 sits under the field, and a line inside the field lets people stop their
 recordings being sent. Docs and playground:
-https://labs.launchstudio.space/voice-input (`/playground/voice-input` for
+https://labs.launchstudio.space/dictation-input (`/playground/dictation-input` for
 the bare demo).
 
 ```tsx
-<VoiceInput multiline value={answer} onValueChange={setAnswer} onTranscribe={transcribe} />
-// or put the mic on your own field
-<VoiceInput value={name} onValueChange={setName} onTranscribe={transcribe}>
+// Wrap the field your form already has: Input or Textarea.
+<DictationInput value={name} onValueChange={setName} onTranscribe={transcribe}>
   <Input value={name} onChange={(e) => setName(e.target.value)} />
-</VoiceInput>
+</DictationInput>
 ```
 
-**Add it with a prompt (default).** The docs page has a **Copy prompt**
+**Installation → Prompt (the default tab).** The docs page has a **Copy prompt**
 button. Paste the prompt into a coding agent: it points the agent at the
-skill (`/skills/voice-input/SKILL.md`) and the registry item
-(`/r/voice-input.json`), and the agent scans your repo, sends you a short
+skill (`/skills/dictation-input/SKILL.md`) and the registry item
+(`/r/dictation-input.json`), and the agent scans your repo, sends you a short
 plan (registry or manual install, which fields, transcription, recordings
 and privacy, env vars) and waits for your OK — then installs the component
 and implements the frontend and backend. Nothing changes until you approve.
 
 ```text
-Add the Voice Input component from Launch Studio Labs to my app.
+Add the Dictation Input component from Launch Studio Labs to my app.
 
-Skill (follow it): https://labs.launchstudio.space/skills/voice-input/SKILL.md
+Skill (follow it): https://labs.launchstudio.space/skills/dictation-input/SKILL.md
 
-Component (shadcn registry item): https://labs.launchstudio.space/r/voice-input.json
+Component (shadcn registry item): https://labs.launchstudio.space/r/dictation-input.json
 ```
 
 The page builds the URLs from the host it is served on, so a pull-request
@@ -63,22 +62,22 @@ preview copies that preview's skill and registry URLs.
 **Or install it yourself** through the registry:
 
 ```bash
-npx shadcn@latest add https://labs.launchstudio.space/r/voice-input.json
-# a pull-request preview serves the same item at <preview-origin>/r/voice-input.json
+npx shadcn@latest add https://labs.launchstudio.space/r/dictation-input.json
+# a pull-request preview serves the same item at <preview-origin>/r/dictation-input.json
 ```
 
 Or by hand: `npm install voice-glow @phosphor-icons/react`,
 `npx shadcn@latest add button dropdown-menu popover`, then copy
-`components/ui/voice-input.tsx`, `components/ui/voice-waveform.tsx`,
+`components/ui/dictation-input.tsx`, `components/ui/voice-waveform.tsx`,
 `hooks/use-voice-recorder.ts` and `lib/voice-recording.ts`.
 
 Optional looks: `fieldEffect` draws the voice inside the field (`glow`,
-`level`, `bars`, `wave`, `dots`), each with its own motion while
+`level`, `dots`), each with its own motion while
 transcribing; `buttonRadius` is `"auto"` (visually concentric with the
 field: `min(R, max(R − inset, R / 2, 5px), button / 2)`), `"full"` or px.
 
 To keep the skill in your agent instead:
-`npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/voice-input`.
+`npx skills add https://github.com/Launch-Studio-Labs/launchstudio-labs/tree/main/skills/dictation-input`.
 Its `references/` hold the details for doing it by hand too:
 `install.md`, `component.md` (wiring, props, permissions), `server.md`
 (OpenAI transcription route, storage, deleting audio, "don't send

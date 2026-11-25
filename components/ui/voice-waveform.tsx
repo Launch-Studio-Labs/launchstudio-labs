@@ -1,12 +1,12 @@
 "use client"
 
 /**
- * Voice Input — the live waveform drawn while recording and the playback
+ * Dictation Input — the live waveform drawn while recording and the playback
  * player shown after. Both paint in `currentColor`, so they follow whatever
  * text colour the parent sets.
  *
- * Part of the Launch Studio Labs Voice Input component.
- * https://labs.launchstudio.space/voice-input
+ * Part of the Launch Studio Labs Dictation Input component.
+ * https://labs.launchstudio.space/dictation-input
  */
 
 import {
@@ -36,10 +36,9 @@ import {
 /**
  * - `bars`: a scrolling history of the level, newest on the right — reads as
  *   "this is being kept", the way a voice memo does
- * - `wave`: the live signal as one line — reads as "this is listening"
  * - `dots`: the same history as dots, quieter than bars
  */
-export type VoiceWaveformStyle = "bars" | "wave" | "dots"
+export type VoiceWaveformStyle = "bars" | "dots"
 
 /**
  * What the live canvas can draw: the waveform styles, plus `level` — a row of
@@ -60,8 +59,8 @@ export interface LiveWaveformProps extends ComponentProps<"div"> {
   frozen?: boolean
   /**
    * The take is being transcribed: no voice any more, so each style plays
-   * its own "working" motion — a pulse through the bars and dots, a slow
-   * travelling line, a sweep across the level bars.
+   * its own "working" motion — a pulse through the bars and dots, a sweep
+   * across the level bars.
    */
   processing?: boolean
   waveform?: LiveWaveformStyle
@@ -119,7 +118,6 @@ export function LiveWaveform({
     const observer = new ResizeObserver(resize)
     observer.observe(canvas)
 
-    const samples = analyser ? new Float32Array(analyser.fftSize) : null
     const history = historyRef.current
     let lastPush = 0
     /** 0 while listening, eases to 1 while processing, so the switch blends. */
@@ -142,44 +140,6 @@ export function LiveWaveform({
       const mid = height / 2
       const t = now / 1000
       work += ((processingRef.current ? 1 : 0) - work) * 0.08
-      const working = work > 0.02
-
-      if (waveform === "wave") {
-        context.lineWidth = 1.5
-        context.lineJoin = "round"
-        context.beginPath()
-        if (working) {
-          // A slow, travelling double sine that breathes: thinking, not hearing.
-          const amp = mid * 0.55 * work * (0.75 + 0.25 * Math.sin(t * 1.6))
-          for (let x = 0; x <= width; x++) {
-            const edge = Math.sin((x / width) * Math.PI)
-            const phase = (x / Math.max(1, width)) * Math.PI * 4 - t * 3.2
-            const value =
-              Math.sin(phase) * 0.7 + Math.sin(phase * 0.5 + t) * 0.3
-            const y = mid + value * amp * edge
-            if (x === 0) context.moveTo(x, y)
-            else context.lineTo(x, y)
-          }
-        } else if (analyser && samples) {
-          analyser.getFloatTimeDomainData(samples)
-          // Boost so a normal voice fills the lane; auto gain keeps it level.
-          const gain = Math.min(6, 0.9 / Math.max(0.05, peakAbs(samples)))
-          const step = samples.length / Math.max(1, width)
-          for (let x = 0; x <= width; x++) {
-            const value = samples[Math.floor(x * step)] ?? 0
-            // Taper the ends so the line enters and leaves at the centre.
-            const edge = Math.sin((x / width) * Math.PI)
-            const y = mid + value * gain * mid * 0.9 * edge
-            if (x === 0) context.moveTo(x, y)
-            else context.lineTo(x, y)
-          }
-        } else {
-          context.moveTo(0, mid)
-          context.lineTo(width, mid)
-        }
-        context.stroke()
-        return
-      }
 
       const bar = BAR[waveform]
       const gap = GAP[waveform]
@@ -283,15 +243,6 @@ function paletteGradient(
     gradient.addColorStop(0.5 + offset, colors[2 * k])
   }
   return gradient
-}
-
-function peakAbs(samples: Float32Array) {
-  let peak = 0
-  for (let i = 0; i < samples.length; i++) {
-    const value = Math.abs(samples[i])
-    if (value > peak) peak = value
-  }
-  return peak
 }
 
 function roundRect(

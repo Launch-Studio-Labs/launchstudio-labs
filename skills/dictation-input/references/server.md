@@ -1,7 +1,7 @@
-# Voice Input — backend (Phase 3, steps 3–5)
+# Dictation Input: backend (Phase 3, steps 3 to 5)
 
 Only what the user approved in the plan. Adapt the code to the app's own
-route style, auth, rate limiting, env handling, DB and storage — the
+route style, auth, rate limiting, env handling, DB and storage. The
 examples below are a Next.js App Router baseline.
 
 Two shapes, pick the approved one:
@@ -30,7 +30,7 @@ OPENAI_TRANSCRIBE_MODEL=gpt-4o-mini-transcribe # optional
 On Cloudflare Workers (OpenNext), read the key from the Worker env binding
 (`getCloudflareContext().env`) first and fall back to `process.env` for
 `next dev`. Read it by a variable name, not `process.env.OPENAI_API_KEY`
-literally — Next inlines static `process.env.X` at build time and would
+literally: Next inlines static `process.env.X` at build time and would
 freeze an empty value.
 
 ## `lib/voice-server.ts`
@@ -98,7 +98,7 @@ export async function transcribe(
     throw new VoiceFailure("transcribe", 502, "Couldn't transcribe that recording.")
   }
   if (!response.ok) {
-    // Log the status and OpenAI's error *code* only — the message can echo
+    // Log the status and OpenAI's error *code* only; the message can echo
     // part of the key. Never log the transcript or the audio.
     console.error(JSON.stringify({ msg: "voice_transcribe_failed", status: response.status }))
     throw new VoiceFailure("transcribe", 502, "Couldn't transcribe that recording.")
@@ -111,7 +111,7 @@ export async function transcribe(
 }
 ```
 
-## `app/api/voice/route.ts` — transcribe
+## `app/api/voice/route.ts`: transcribe
 
 ```ts
 import { NextRequest, NextResponse } from "next/server"
@@ -160,7 +160,7 @@ Client mapping (already in the SKILL usage example): `empty` →
 `VoiceTranscriptionError("empty")`, `unconfigured` →
 `VoiceTranscriptionError("unconfigured")`, anything else → `"failed"`.
 
-## `app/api/voice/[id]/route.ts` — delete
+## `app/api/voice/[id]/route.ts`: delete
 
 ```ts
 import { NextRequest, NextResponse } from "next/server"
@@ -171,7 +171,7 @@ export async function DELETE(
 ) {
   const { id } = await params
   // 1. Auth: the caller must own this recording. Check the path prefix /
-  //    owner column before touching storage — never delete by a raw id
+  //    owner column before touching storage; never delete by a raw id
   //    from the client without that check.
   // 2. Remove the object AND every reference to it (draft answers, DB rows).
   // 3. Idempotent: deleting something already gone is a success.
@@ -206,10 +206,10 @@ never outlives the submission even if a client-side delete never arrived.
   inside the answer JSON if answers are stored as JSON. Store the storage
   key, never a public URL.
 - **The choice.** Persist `send_recordings` (boolean, default true) once per
-  form/response — a column, or a field in the saved JSON.
+  form/response: a column, or a field in the saved JSON.
 - **Migrations.** Use the app's tool (Prisma migrate, drizzle-kit, Supabase
   SQL migrations, raw SQL files) and naming. Additive and nullable, so
-  existing rows keep working. Don't run it against a shared database —
+  existing rows keep working. Don't run it against a shared database;
   tell the user to.
 - **Storage.** A private bucket/prefix, scoped per owner
   (`<ownerId>/<formId>/voice/<random>.<ext>`). Serve playback through signed
@@ -218,7 +218,7 @@ never outlives the submission even if a client-side delete never arrived.
   column) before deleting. Idempotent: already gone is success.
 - **Other providers.** If the app already uses another speech-to-text
   provider (Deepgram, AssemblyAI, Google, Azure, the Vercel AI SDK's
-  `experimental_transcribe`), use it — the contract to the client is the
+  `experimental_transcribe`), use it. The contract to the client is the
   same: `{ transcript, audioId }`, `422 { code: "empty" }`,
   `503 { code: "unconfigured" }`, anything else a failure.
 - **Limits.** Keep `maxDurationMs` on the client under the host's body
@@ -226,7 +226,7 @@ never outlives the submission even if a client-side delete never arrived.
   Vercel Functions cap request bodies at 4.5 MB. Edge/Workers runtimes: use `arrayBuffer()` and `Blob`,
   not Node `Buffer`.
 
-## Privacy — "don't send recordings", end to end
+## Privacy: "don't send recordings", end to end
 
 The component shows the choice and passes it along. Honouring it is the
 server's job. All of these, whenever audio can be stored:
@@ -235,7 +235,7 @@ server's job. All of these, whenever audio can be stored:
    file left behind, no audio in logs, analytics or error reports.
 2. **Nothing else uploads it.** `onResult` gives `audio: null` and
    `audioId: null` when withheld. (Local playback in the component plays
-   from memory on the device — fine.)
+   from memory on the device, which is fine.)
 3. **Delete on opt-out, reset and replacement.** The component calls
    `onDeleteRecording(result)` with the stored `audioId`; delete the object
    *and* its reference (column, draft JSON).
@@ -243,4 +243,4 @@ server's job. All of these, whenever audio can be stored:
    files for withheld answers, so a delete that never arrived (closed tab,
    network error) can't leave audio behind.
 5. **Honest copy.** The in-field line says "Recordings won't be sent with
-   your answers." Only ship that if 1–4 are true.
+   your answers." Only ship that if 1 to 4 are true.

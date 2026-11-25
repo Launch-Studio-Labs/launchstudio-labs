@@ -2,7 +2,7 @@
 
 /**
  * useVoiceRecorder — microphone, MediaRecorder and level metering for the
- * Voice Input component, usable on its own for a custom UI.
+ * Dictation Input component, usable on its own for a custom UI.
  *
  * It owns everything between "the user pressed record" and "here is a
  * finished take": the permission request, device choice (remembered across
@@ -10,8 +10,8 @@
  * detection and every way that can fail. What happens to the take afterwards
  * — sending it, holding it for review — is the caller's business.
  *
- * Part of the Launch Studio Labs Voice Input component.
- * https://labs.launchstudio.space/voice-input
+ * Part of the Launch Studio Labs Dictation Input component.
+ * https://labs.launchstudio.space/dictation-input
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -84,7 +84,7 @@ export interface UseVoiceRecorderOptions {
   onTake?: (take: VoiceTake) => void
 }
 
-const DEFAULT_INPUT_KEY = "voice-input.device"
+const DEFAULT_INPUT_KEY = "dictation-input.device"
 
 export function useVoiceRecorder({
   autoGainControl = true,

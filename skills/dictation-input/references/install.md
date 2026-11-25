@@ -1,4 +1,4 @@
-# Voice Input — install (Phase 3, step 1)
+# Dictation Input: install (Phase 3, step 1)
 
 Only after the user approved the plan. Use the app's package manager
 (`pnpm dlx` / `bunx` / `yarn dlx` / `npx`).
@@ -10,21 +10,21 @@ own `components/ui`.
 ## Registry path (the app has `components.json`)
 
 ```bash
-npx shadcn@latest add https://labs.launchstudio.space/r/voice-input.json
+npx shadcn@latest add https://labs.launchstudio.space/r/dictation-input.json
 ```
 
 Run it in the folder that holds the target app's `components.json`. It
 writes four files, installs `voice-glow` and `@phosphor-icons/react`, and
-adds `button`, `dropdown-menu` and `popover` if they are missing — in the
+adds `button`, `dropdown-menu` and `popover` if they are missing, in the
 app's own shadcn style.
 
 A Labs pull-request preview serves the same item at
-`<preview-origin>/r/voice-input.json` (e.g.
-`https://cursor-voice-input-launchstudio-labs.launch-studio.workers.dev/r/voice-input.json`).
+`<preview-origin>/r/dictation-input.json` (e.g.
+`https://cursor-voice-input-launchstudio-labs.launch-studio.workers.dev/r/dictation-input.json`).
 Use production unless the user asked for a preview build.
 
 If `shadcn add` prompts to overwrite an existing file, don't overwrite the
-app's own `button` / `dropdown-menu` / `popover` — answer no and keep theirs.
+app's own `button` / `dropdown-menu` / `popover`: answer no and keep theirs.
 
 ## Manual path (no `components.json`)
 
@@ -32,27 +32,27 @@ app's own `button` / `dropdown-menu` / `popover` — answer no and keep theirs.
    ```bash
    npm install voice-glow @phosphor-icons/react
    ```
-2. Primitives — `button`, `dropdown-menu`, `popover`. If the app has some
+2. Primitives: `button`, `dropdown-menu`, `popover`. If the app has some
    shadcn files already, add the missing ones the same way they were added
    (copied from ui.shadcn.com, or `npx shadcn@latest add` if the user agreed
    to `shadcn init` in the plan).
 3. Copy the four files (raw URLs; keep the paths or map them to the app's
    folders):
-   - `components/ui/voice-input.tsx` — the component
-   - `components/ui/voice-waveform.tsx` — live waveform + recap player
-   - `hooks/use-voice-recorder.ts` — mic / MediaRecorder state machine
-   - `lib/voice-recording.ts` — pure helpers (the server uses them too)
+   - `components/ui/dictation-input.tsx`: the component
+   - `components/ui/voice-waveform.tsx`: live waveform + recap player
+   - `hooks/use-voice-recorder.ts`: mic / MediaRecorder state machine
+   - `lib/voice-recording.ts`: pure helpers (the server uses them too)
 
    From `https://raw.githubusercontent.com/Launch-Studio-Labs/launchstudio-labs/main/<path>`,
    or take the `content` of each file in
-   `https://labs.launchstudio.space/r/voice-input.json`.
+   `https://labs.launchstudio.space/r/dictation-input.json`.
 4. Fix imports to the app's aliases: `@/components/ui/*`, `@/hooks/*`,
    `@/lib/utils` (`cn`), `@/lib/voice-recording`.
 
 ## Radix-flavoured shadcn
 
 The component is written against Base UI primitives. With Radix `Popover` /
-`DropdownMenu`, edit `voice-input.tsx`:
+`DropdownMenu`, edit `dictation-input.tsx`:
 
 - `initialFocus={cancelRef}` on `PopoverContent` →
   `onOpenAutoFocus={(e) => { e.preventDefault(); cancelRef.current?.focus() }}`

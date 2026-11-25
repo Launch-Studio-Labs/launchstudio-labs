@@ -1,10 +1,10 @@
 /**
- * Voice Input — pure helpers for recording in the browser and handing the
+ * Dictation Input — pure helpers for recording in the browser and handing the
  * audio to a transcription API. No DOM or framework imports, so they run in
  * a test runner or on the server (`audioExtension`, `isAcceptedAudio`).
  *
- * Part of the Launch Studio Labs Voice Input component.
- * https://labs.launchstudio.space/voice-input
+ * Part of the Launch Studio Labs Dictation Input component.
+ * https://labs.launchstudio.space/dictation-input
  */
 
 /**

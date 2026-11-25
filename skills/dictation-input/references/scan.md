@@ -1,4 +1,4 @@
-# Voice Input — scanning the repo (Phase 1)
+# Dictation Input: scanning the repo (Phase 1)
 
 Everything here is read-only. Use search and file reads; don't install,
 build, or run migrations to find things out.
@@ -7,7 +7,7 @@ build, or run migrations to find things out.
 
 Re-read what the user asked for. Named files, forms, routes, providers,
 "use our X", "don't touch Y" are constraints, not suggestions. Scan to
-confirm they exist and to find what they need — don't propose alternatives
+confirm they exist and to find what they need. Don't propose alternatives
 unless one is impossible (then say why in the plan).
 
 ## 1. Stack
@@ -20,7 +20,7 @@ unless one is impossible (then say why in the plan).
 | `pnpm-workspace.yaml`, `turbo.json`, `apps/*` | monorepo: work inside the app the user means |
 | `vercel.json`, `wrangler.*`, `netlify.toml`, Dockerfile | hosting → request body limits and runtime (Node vs edge/Workers) |
 
-## 2. shadcn — registry or manual
+## 2. shadcn: registry or manual
 
 ```bash
 # find every components.json outside node_modules
@@ -44,9 +44,9 @@ Decision:
 | --- | --- |
 | One `components.json` for the target app, aliases resolve | **Registry** |
 | No `components.json`, but a `components/ui` folder of shadcn-like files | **Manual** (copy files; adjust imports) |
-| No shadcn at all | **Manual**, plus add the three primitives (`button`, `dropdown-menu`, `popover`) — via `npx shadcn init` only if the user agrees in the plan; otherwise copy them |
-| Several `components.json` (monorepo) | Registry, run in the target app's folder — say which in the plan |
-| `components.json` whose aliases point at folders that don't exist | Ambiguous — say so in the plan and ask |
+| No shadcn at all | **Manual**, plus add the three primitives (`button`, `dropdown-menu`, `popover`), via `npx shadcn init` only if the user agrees in the plan; otherwise copy them |
+| Several `components.json` (monorepo) | Registry, run in the target app's folder; say which in the plan |
+| `components.json` whose aliases point at folders that don't exist | Ambiguous: say so in the plan and ask |
 | Tailwind v3 | Install path as above, but flag it: the component is written for Tailwind v4 (`group-has-*`, `pointer-coarse:`, `field-sizing-content`, CSS-variable arbitrary values) and needs small class edits on v3 |
 
 State the choice and the one-line reason in the plan. Don't ask the user to
@@ -59,7 +59,7 @@ pick unless the table says ambiguous.
 grep -rnE "<(Textarea|Input)\b|<textarea\b" --include=*.tsx --include=*.jsx app src components | grep -v node_modules
 ```
 
-Good candidates: free text people would rather say than type — long
+Good candidates: free text people would rather say than type: long
 answers, descriptions, feedback, notes, briefs, messages, comments. Usually
 textareas; single-line only when the answer is a sentence (a name, a title,
 a short goal).
@@ -94,7 +94,7 @@ transcript must flow into.
 
 ## 5. Existing audio code
 
-`grep -rniE "mediarecorder|getUserMedia|transcri|whisper|audio/webm"` —
+`grep -rniE "mediarecorder|getUserMedia|transcri|whisper|audio/webm"`, then
 reuse or replace it; say which in the plan.
 
 ## What the plan needs from the scan

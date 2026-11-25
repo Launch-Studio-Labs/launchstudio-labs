@@ -5,7 +5,7 @@ import path from "node:path"
  * The agent skills in `skills/`, served as plain files from the site, so a
  * skill can be read or downloaded from any Labs host (production or a
  * preview) without a second copy to keep in step:
- * /skills/voice-input/SKILL.md, /skills/voice-input/references/scan.md, …
+ * /skills/dictation-input/SKILL.md, /skills/dictation-input/references/scan.md, …
  *
  * Every file is generated at build time; nothing else is served.
  */

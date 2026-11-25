@@ -1,54 +1,52 @@
 ---
-name: voice-input
-description: Add Voice Input — a microphone in the corner of an existing text field, with transcription — to a React / Next.js app, frontend and backend. Scans the repo first, picks shadcn registry or manual install from what the app already has, presents a short bullet plan (install path, which fields, backend, storage, privacy) and waits for the user's explicit OK before changing anything. Use when asked to add voice input, dictation, voice notes or spoken answers to forms or text fields.
+name: dictation-input
+description: Add Dictation Input (a microphone in the corner of an existing text field, with transcription) to a React / Next.js app, frontend and backend. Scans the repo first, picks shadcn registry or manual install from what the app already has, presents a short bullet plan (install path, which fields, backend, storage, privacy) and waits for the user's explicit OK before changing anything. Use when asked to add voice input, dictation, voice notes or spoken answers to forms or text fields.
 ---
 
-# Voice Input
+# Dictation Input
 
-You are adding **Voice Input** from Launch Studio Labs to the user's app: a
+You are adding **Dictation Input** from Launch Studio Labs to the user's app: a
 normal text field (`Input` / `Textarea`) with a small mic button in its
 corner. People type as usual; pressing the mic records, the transcript is
 written into the same field, and a line inside the field lets them stop
 their recording being sent. Docs and live demo:
-https://labs.launchstudio.space/voice-input
+https://labs.launchstudio.space/dictation-input
 
-You do the whole job — install, wire the fields, build the transcription
-backend, storage and privacy handling — in three phases:
+You do the whole job (install, wire the fields, build the transcription
+backend, storage and privacy handling) in three phases:
 
 1. **Scan** the repo (read-only).
 2. **Plan**: send the user a short bullet plan, then **stop and wait**.
 3. **Implement** frontend and backend, only after they say OK, then verify.
-
-> ## ⛔ The gate: nothing changes without the user's OK
->
-> Phases 1 and 2 are **read-only**. Before the user explicitly approves the
-> plan you must not: install packages, run `shadcn add`, create or edit
-> files, add routes, write migrations, touch env files, or run anything that
-> writes to the repo or a database.
->
-> After you send the plan, **end your turn**. Do not continue in the same
-> turn, and do not treat silence, a question, or "looks interesting" as
-> approval. Approval is an explicit go-ahead ("OK", "go", "yes, do it", or
-> the plan with changes they ask for). If they change something material
-> (fields, storage, provider), send the revised plan and wait again.
 
 **If the user pasted the Labs prompt**, it gives you this skill's URL and the
 registry item's URL. Use that registry URL for the install, and fetch the
 references from the same origin as the skill (a pull-request preview serves
 both). Without those URLs, use `https://labs.launchstudio.space`.
 
-References — read the one you need, when you need it. They sit next to this
+References: read the one you need, when you need it. They sit next to this
 file; if the folder is missing, fetch them from
-`<origin>/skills/voice-input/references/<name>.md`:
+`<origin>/skills/dictation-input/references/<name>.md`:
 
-- `references/scan.md` — what to look for, and how to decide registry vs manual
-- `references/install.md` — the registry and manual install steps
-- `references/component.md` — wiring, props, states, permissions, verification
-- `references/server.md` — transcription route, storage, delete, privacy end to end
+- `references/scan.md`: what to look for, and how to decide registry vs manual
+- `references/install.md`: the registry and manual install steps
+- `references/component.md`: wiring, props, states, permissions, verification
+- `references/server.md`: transcription route, storage, delete, privacy end to end
 
----
+## The gate: nothing changes without the user's OK
 
-## Phase 1 — Scan (read-only)
+Phases 1 and 2 are **read-only**. Before the user explicitly approves the
+plan you must not: install packages, run `shadcn add`, create or edit
+files, add routes, write migrations, touch env files, or run anything that
+writes to the repo or a database.
+
+After you send the plan, **end your turn**. Do not continue in the same
+turn, and do not treat silence, a question, or "looks interesting" as
+approval. Approval is an explicit go-ahead ("OK", "go", "yes, do it", or
+the plan with changes they ask for). If they change something material
+(fields, storage, provider), send the revised plan and wait again.
+
+## Phase 1: Scan (read-only)
 
 Start from what the user already told you. If they named files, routes,
 forms, an API, a provider, or things not to touch, those are fixed: scan
@@ -63,7 +61,7 @@ Then find out, without changing anything (details and commands in
   UI), which aliases, which of `button`, `dropdown-menu`, `popover`,
   `input`, `textarea` already exist.
 - **Where voice fits:** existing `Input` / `Textarea` / `<textarea>` fields
-  where people write free text — long answers, descriptions, feedback,
+  where people write free text: long answers, descriptions, feedback,
   notes, messages. Note how each is wired (state, react-hook-form, server
   actions, validation, max length). Skip emails, numbers, passwords, search
   boxes and anything the user excluded.
@@ -74,9 +72,9 @@ Then find out, without changing anything (details and commands in
 - **Already there:** any voice / audio / transcription code to reuse or
   replace.
 
-## Phase 2 — Plan, then stop
+## Phase 2: Plan, then stop
 
-**Decide the install path from the scan — don't ask:**
+**Decide the install path from the scan; don't ask:**
 
 - `components.json` for the app you're changing, with aliases that resolve
   → **shadcn registry**.
@@ -89,25 +87,30 @@ Then find out, without changing anything (details and commands in
 **Recommend a backend from the scan.** Reuse what the app has: route style,
 auth, provider SDK, DB, storage. Default transcription: OpenAI
 `gpt-4o-mini-transcribe` through a server route (`references/server.md`).
-Storing audio is optional — recommend **transcript only, no audio stored**
+Storing audio is optional. Recommend **transcript only, no audio stored**
 unless the app has private storage and a reason to keep recordings. If
 audio is stored, the opt-out and delete path is part of the plan.
 
-Then send **one short message** in this shape — bullets, scannable, no
+**Pick a `recordingPolicy`.** `"ask"` (the default) lets each person choose
+with a line inside the field. If the app never stores audio, recommend
+`"never"`: there is nothing to choose, so no line. Use `"always"` only when the
+app needs the audio and the user says so; the line then stays as a notice.
+
+Then send **one short message** in this shape: bullets, scannable, no
 essays. Fill it with what you found; drop lines that don't apply.
 
 ```markdown
-**Voice Input — plan** (nothing changed yet)
+**Dictation Input: plan** (nothing changed yet)
 
-- **Install:** shadcn registry — `components.json` found (Base UI, aliases `@/components/ui`). Adds 4 files + `voice-glow`; reuses your `button`, adds `dropdown-menu` and `popover`.
+- **Install:** shadcn registry. `components.json` found (Base UI, aliases `@/components/ui`). Adds 4 files + `voice-glow`; reuses your `button`, adds `dropdown-menu` and `popover`.
 - **Where** (mic in the corner of the existing field, nothing else moves):
   - `app/(app)/feedback/feedback-form.tsx` → "Details" textarea
   - `app/(app)/onboarding/goals-step.tsx` → "What are you building?" textarea
   - Skipping: email, budget (not free text)
-- **Transcription:** new `app/api/voice/route.ts`, OpenAI `gpt-4o-mini-transcribe`, behind your session auth and rate limiter. Needs `OPENAI_API_KEY` (not set yet — you add it).
-- **Recordings:** not stored — transcribe and discard (recommended). Alternative: store in your private Supabase bucket `uploads` + `audio_path` column on `feedback` (migration `0012_feedback_voice.sql`), deleted on reset / opt-out.
-- **Privacy:** the in-field "Don't send recordings" line, saved with the form; the server never stores withheld audio and deletes stored audio on opt-out.
-- **Other:** needs HTTPS; Safari records MP4 (handled); 5-min cap fits your 4.5 MB body limit; your shadcn is Radix → 2 small edits in `voice-input.tsx`; transcription is billed per minute (see OpenAI pricing).
+- **Transcription:** new `app/api/voice/route.ts`, OpenAI `gpt-4o-mini-transcribe`, behind your session auth and rate limiter. Needs `OPENAI_API_KEY` (not set yet; you add it).
+- **Recordings:** not stored; transcribe and discard (recommended). Alternative: store in your private Supabase bucket `uploads` + `audio_path` column on `feedback` (migration `0012_feedback_voice.sql`), deleted on reset / opt-out.
+- **Privacy:** `recordingPolicy="ask"`: the in-field "Don't send recordings" line, saved with the form; the server never stores withheld audio and deletes stored audio on opt-out. (`"never"` if no audio is stored; `"always"` only if you need it.)
+- **Other:** needs HTTPS; Safari records MP4 (handled); 5-min cap fits your 4.5 MB body limit; your shadcn is Radix → 2 small edits in `dictation-input.tsx`; transcription is billed per minute (see OpenAI pricing).
 - **Not touching:** the settings page (you excluded it).
 
 Reply **OK** to go ahead, or tell me what to change.
@@ -117,25 +120,25 @@ The plan must:
 
 - say registry or manual **and why** (one clause);
 - name every file you'll create or edit, and each field by its label;
-- say what happens to audio — stored or not, and the delete path if stored;
+- say what happens to audio: stored or not, and the delete path if stored;
 - list new env vars, services and costs (point to the pricing page; don't
   quote prices from memory).
 
 Then **stop**. End the turn.
 
-## Phase 3 — Implement (only after an explicit OK)
+## Phase 3: Implement (only after an explicit OK)
 
 Do exactly the approved plan. If something contradicts it (a file moved, a
 migration conflicts, a dependency won't install), stop and ask instead of
 improvising.
 
 1. **Install** by the chosen path (`references/install.md`). Registry:
-   `npx shadcn@latest add <registry URL from the prompt, or https://labs.launchstudio.space/r/voice-input.json>`
+   `npx shadcn@latest add <registry URL from the prompt, or https://labs.launchstudio.space/r/dictation-input.json>`
    with the app's package manager. Manual: packages, primitives, the four
    files, imports fixed to the app's aliases. Radix-flavoured shadcn needs
    the small edits listed there.
-2. **Wire the fields.** Wrap each approved field — don't replace it:
-   `<VoiceInput value={v} onValueChange={setV} onTranscribe={…}><Textarea … /></VoiceInput>`,
+2. **Wire the fields.** Wrap each approved field; don't replace it:
+   `<DictationInput value={v} onValueChange={setV} onTranscribe={…}><Textarea … /></DictationInput>`,
    keeping its props, validation, form binding and max length
    (`references/component.md`). One `sendRecording` value for the whole
    form; one recording at a time across fields (`onActiveChange` +
@@ -143,7 +146,7 @@ improvising.
 3. **Backend** (`references/server.md`): the transcription route behind the
    app's auth and rate limiting; key read server-side; errors mapped to
    `VoiceTranscriptionError` codes.
-4. **Storage and privacy** — only what was approved:
+4. **Storage and privacy**, only what was approved:
    - transcript only: the route never writes audio anywhere;
    - audio stored: save it only when `keep_audio=1`, add the DELETE route,
      wire `onDeleteRecording`, persist `sendRecording` with the form, and
@@ -153,7 +156,7 @@ improvising.
    schema if there is one; tell the user which secrets to set where.
 6. **Verify:** the app's typecheck, lint, tests and build; then a browser
    check (headless Chromium with `--use-fake-ui-for-media-stream
-   --use-fake-device-for-media-stream` is fine) — checklist at the end of
+   --use-fake-device-for-media-stream` is fine); checklist at the end of
    `references/component.md`.
 7. **Report:** files changed, what the user still has to do (set secrets,
    run the migration, deploy), and anything you left out.
@@ -174,5 +177,5 @@ improvising.
   code, no transcript content in logs.
 - **Credit stays.** The glow is Voice Glow by Jakub Antalik
   (https://libraries.dev/voice, MIT, Copyright (c) 2026 Jakub Antalik). Keep
-  the credit comment at the top of `voice-input.tsx`; don't use Voice Glow
+  the credit comment at the top of `dictation-input.tsx`; don't use Voice Glow
   Pro features.

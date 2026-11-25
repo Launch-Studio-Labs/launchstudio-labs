@@ -1,2 +1,8 @@
 # The bare playground route opens on the first demo in components/demos/registry.ts.
 /playground /playground/empty-state 307
+
+# Voice Input was renamed Dictation Input before release; old links still land.
+/voice-input /dictation-input 301
+/playground/voice-input /playground/dictation-input 301
+/r/voice-input.json /r/dictation-input.json 301
+/skills/voice-input/* /skills/dictation-input/:splat 301
