@@ -33,7 +33,7 @@ SOFTWARE.
 
 ## Demo photo
 
-`public/images/fjord.jpg`, used by the Image Cropper demo, is a photo by
-Alexey Topolyanskiy (https://unsplash.com/photos/-oWyJoSqBRM), used under the
-Unsplash License (https://unsplash.com/license). It is not part of any
-registry item.
+`public/images/fjord-wide.jpg` and `public/images/fjord.jpg` (a crop of
+it), used by the Image Cropper demo, are a photo by Alexey Topolyanskiy
+(https://unsplash.com/photos/-oWyJoSqBRM), used under the Unsplash License
+(https://unsplash.com/license). They are not part of any registry item.
