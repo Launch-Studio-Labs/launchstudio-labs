@@ -21,9 +21,12 @@ import {
  */
 export function SkillDialog({
   skill,
+  title,
 }: {
   /** SKILL.md without its frontmatter. */
   skill: string
+  /** The dialog's title, e.g. "Dictation Input skill". */
+  title: string
 }) {
   return (
     <Dialog>
@@ -43,7 +46,7 @@ export function SkillDialog({
           wider, for reading. The corner button closes it. */}
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Dictation Input skill</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             What your agent follows when you paste the prompt.
           </DialogDescription>

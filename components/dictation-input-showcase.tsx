@@ -15,7 +15,7 @@ import { Code, Section } from "@/components/docs/section"
 import { Steps } from "@/components/docs/steps"
 import { PageHeader } from "@/components/page-header"
 import { Prose } from "@/components/prose"
-import { SkillDialog } from "@/components/skill-dialog"
+import { PromptCard } from "@/components/docs/prompt-card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { DictationInputOwnProps } from "@/components/ui/dictation-input"
@@ -176,7 +176,11 @@ export function DictationInputShowcase({ skill }: { skill: string }) {
               </p>
             </Prose>
             <Steps steps={SKILL_STEPS} />
-            <PromptCard prompt={prompt} skill={skill} />
+            <PromptCard
+              prompt={prompt}
+              skill={skill}
+              skillTitle="Dictation Input skill"
+            />
           </TabsContent>
           <TabsContent value="registry" className="flex flex-col gap-3">
             <Command text={registryCommand} />
@@ -277,22 +281,6 @@ export function DictationInputShowcase({ skill }: { skill: string }) {
         </Prose>
       </Section>
     </>
-  )
-}
-
-/** The prompt, readable before it is copied, and one obvious button. */
-function PromptCard({ prompt, skill }: { prompt: string; skill: string }) {
-  return (
-    <div className="flex flex-col gap-3 rounded-xl bg-muted p-3">
-      {/* Prose to paste, not code: it wraps, so it's no CodeBlock. */}
-      <p className="px-2 pt-1 font-mono text-xs leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-muted-foreground">
-        {prompt}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <CopyPromptButton prompt={prompt}>Copy prompt</CopyPromptButton>
-        <SkillDialog skill={skill} />
-      </div>
-    </div>
   )
 }
 

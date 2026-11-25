@@ -1,4 +1,6 @@
-import { CodeBlock, Command } from "@/components/code-block"
+"use client"
+
+import { CodeBlock } from "@/components/code-block"
 import { ConcentricRadiiDemo } from "@/components/demos/concentric-radii-demo"
 import {
   HandFormula,
@@ -10,10 +12,15 @@ import {
   ScribbledFormula,
   type Scribble,
 } from "@/components/docs/scribbled-formula"
+import { CopyPromptButton } from "@/components/docs/copy-button"
+import { PromptCard } from "@/components/docs/prompt-card"
+import { Section } from "@/components/docs/section"
+import { Steps } from "@/components/docs/steps"
 import { PageHeader } from "@/components/page-header"
 import { Prose } from "@/components/prose"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useRegistryOrigin } from "@/lib/use-registry-origin"
 
 const INTRO = [
   "Put a rounded thing inside another rounded thing and the usual advice is to **subtract the padding from the outer radius**. Both corners then share a centre, so the gap between them stays even all the way round.",
@@ -25,10 +32,6 @@ const BREAK = [
 ]
 
 const RULE_LEAD = ["So we keep the concentric value and just **put a floor under it:**"]
-
-const USE = [
-  "Grab the helper from the registry, or take the CSS if a stylesheet is all you have. Both apply the same rule. The helper also takes an optional `own` radius for when the padding passes the outer one, and an optional `size` that clamps the number it reports at half the element, which the browser does anyway.",
-]
 
 /**
  * The margin notes on the rule. Positions are px from the top-left of the term
@@ -56,17 +59,34 @@ const SCRIBBLES = {
   },
 } satisfies Record<string, Scribble>
 
-const INSTALL =
-  "pnpm dlx shadcn@latest add https://labs.launchstudio.space/r/visual-concentric-radius.json"
+/**
+ * What the Copy prompt button puts on the clipboard. Short on purpose: the
+ * skill carries the workflow — scan the styling, plan, wait for the OK, add
+ * the utility. The origin is the host the page is served from, so a preview
+ * copies a skill URL that exists on that preview.
+ */
+function buildPrompt(origin: string) {
+  return `Add visually concentric radii from Launch Studio Labs to my project.
+
+Skill (follow it): ${origin}/skills/visual-concentric-radii/SKILL.md`
+}
+
+const SKILL_STEPS = [
+  {
+    title: "Reads your project",
+    body: "Works out how to add the utility the way your project writes styles, and finds the nested corners where it would replace a radius set by hand. Changes nothing.",
+  },
+  {
+    title: "Asks for your OK",
+    body: "Explains how it will add the utility, then lists the places it would use it in a short table for you to confirm. Then waits.",
+  },
+  {
+    title: "Does what you confirmed",
+    body: "Adds the utility and updates only the places you picked, then checks a nested corner comes out right.",
+  },
+]
 
 const SNIPPETS = {
-  ts: `import { visualConcentricRadius } from "@/lib/visual-concentric-radius"
-
-visualConcentricRadius({ outer: 7.2, padding: 4, size: 28 }) // 3.6
-visualConcentricRadius({ outer: 16, padding: 12 }) // 8
-visualConcentricRadius({ outer: 24, padding: 8 }) // 16
-visualConcentricRadius({ outer: 6, padding: 12, own: 8 }) // 8, its own
-visualConcentricRadius({ outer: "full", padding: 4, size: 28 }) // 14`,
   css: `/* Set --outer and --padding on the parent; 9999px for a pill.
    Once --padding is bigger than --outer, give the child its own radius. */
 .nested {
@@ -97,10 +117,19 @@ visualConcentricRadius({ outer: "full", padding: 4, size: 28 }) // 14`,
  * that fixes it, and the helper to copy. The demo lives in
  * `components/demos` and is shared with the playground.
  */
-export function ConcentricRadiiShowcase() {
+export function ConcentricRadiiShowcase({ skill }: { skill: string }) {
+  const prompt = buildPrompt(useRegistryOrigin())
+
   return (
     <>
-      <PageHeader href="/concentric-radii" />
+      <PageHeader
+        href="/concentric-radii"
+        action={
+          <CopyPromptButton prompt={prompt} variant="secondary">
+            Add with a prompt
+          </CopyPromptButton>
+        }
+      />
 
       <div className="labs-enter labs-enter-delay-2 flex flex-col gap-6">
         <Prose paragraphs={INTRO} />
@@ -154,25 +183,38 @@ export function ConcentricRadiiShowcase() {
         </ScribbledFormula>
       </div>
 
-      <div className="labs-enter labs-enter-delay-3 flex flex-col gap-6">
-        <Prose paragraphs={USE} />
-        <Command text={INSTALL} />
-        <Tabs defaultValue="ts">
+      <Section title="Installation" className="labs-enter labs-enter-delay-3">
+        {/* The skill first: the agent works out how the project styles and
+            adds the utility there. The other two tabs are for doing it by
+            hand. */}
+        <Tabs defaultValue="skill" className="gap-6">
           <TabsList>
-            <TabsTrigger value="ts">TypeScript</TabsTrigger>
+            <TabsTrigger value="skill">Skill</TabsTrigger>
             <TabsTrigger value="css">CSS</TabsTrigger>
             <TabsTrigger value="tailwind">Tailwind</TabsTrigger>
           </TabsList>
+          <TabsContent value="skill" className="flex flex-col gap-8">
+            <Prose>
+              <p>
+                Copy this into your coding agent. It points the agent at the
+                skill, which recognises how your project writes styles and adds
+                the rule the same way.
+              </p>
+            </Prose>
+            <Steps steps={SKILL_STEPS} />
+            <PromptCard
+              prompt={prompt}
+              skill={skill}
+              skillTitle="Visually concentric radii skill"
+            />
+          </TabsContent>
           {Object.entries(SNIPPETS).map(([value, code]) => (
             <TabsContent key={value} value={value}>
-              <CodeBlock
-                code={code}
-                language={value === "ts" ? "ts" : "css"}
-              />
+              <CodeBlock code={code} language="css" />
             </TabsContent>
           ))}
         </Tabs>
-      </div>
+      </Section>
     </>
   )
 }
