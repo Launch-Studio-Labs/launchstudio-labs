@@ -1,14 +1,6 @@
-import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 
-import { docsTitle } from "@/app/(docs)/pages"
-import { EmptyStateShowcase } from "@/components/empty-state-showcase"
-
-export const metadata: Metadata = {
-  title: docsTitle("/"),
-  description:
-    "A polished, accessible empty state component with five useful variants.",
-}
-
+/** The site has no page of its own at the root; it opens on the first one. */
 export default function Page() {
-  return <EmptyStateShowcase />
+  redirect("/dictation-input")
 }

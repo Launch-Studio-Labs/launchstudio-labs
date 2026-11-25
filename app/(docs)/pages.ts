@@ -6,7 +6,6 @@
  * copy, so the three can never drift apart.
  */
 export const docsPages = {
-  "/": { title: "Empty state", section: "Library" },
   "/dictation-input": { title: "Dictation Input", section: "Library" },
   "/typography": { title: "Width & line height", section: "Practices" },
   "/concentric-radii": {

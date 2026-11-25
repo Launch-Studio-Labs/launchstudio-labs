@@ -27,7 +27,12 @@ const nextConfig: NextConfig = {
             source,
             destination,
             permanent: true,
-          }))
+          })).concat({
+            // The Empty state page was removed.
+            source: "/playground/empty-state",
+            destination: "/playground/dictation-input",
+            permanent: false,
+          })
         },
       }),
 }
