@@ -19,25 +19,31 @@ import {
 /**
  * Opens on the case that started this: a field at the Labs radius (7.2px) with
  * a 28px mic button inset by 4px. The textbook rule leaves that button at
- * 3.2px, which reads as nearly square. Drag padding to 8 for the textarea.
+ * 3.2px, which reads as nearly square. Drag padding to 8 for the textarea,
+ * which is already past the outer radius.
  */
 const DEFAULT_OUTER = 7.2
 const DEFAULT_PADDING = 4
-const DEFAULT_SIZE = 28
+/** The mic button's size. Fixed: only the radius and the padding move. */
+const SIZE = 28
 
 const OUTER_RANGE = { min: 0, max: 32, step: 0.1 }
-const PADDING_RANGE = { min: 0, max: 16, step: 1 }
-const SIZE_RANGE = { min: 16, max: 96, step: 1 }
+/** Runs past the outer radius, so the cutoff can be seen. */
+const PADDING_RANGE = { min: 0, max: 32, step: 1 }
 
-/**
- * One width for the field and the loupe under it. Fixed rather than fluid so
- * the loupe's copy of the field lines up with the real one edge for edge.
- */
+/** The field's width before it is magnified. */
 const SPECIMEN_WIDTH = 216
 
-/** The loupe's height, and how far in from its edge the corner sits. */
-const LOUPE_HEIGHT = 96
+/**
+ * The loupe's height, how far in from its top-right the corner sits, and the
+ * height the zoom fits the corner into.
+ */
+const LOUPE_HEIGHT = 129
 const LOUPE_INSET = 12
+const LOUPE_VIEW = 84
+
+/** The panel's padding. The loupe runs out through it to the panel's left edge. */
+const PANEL_PADDING = 16
 
 /** What a pill resolves to in CSS — larger than any box it is set on. */
 const PILL = 9999
@@ -74,7 +80,7 @@ function Field({
   return (
     <div
       style={{ width: SPECIMEN_WIDTH, borderRadius: outer, padding }}
-      className="flex items-center bg-background ring-1 ring-input"
+      className="flex items-center border border-input bg-background"
     >
       <span
         style={{ paddingLeft: Math.max(0, TEXT_INSET - padding) }}
@@ -97,16 +103,20 @@ function Field({
  * to call at 1×; up close you can see whether the button's corner bends with
  * the field's or sits square inside it. The zoom follows the specimen so the
  * corner and the button fill the loupe whatever the sliders say.
+ *
+ * No backing of its own: just the magnified field, cropped. The crop runs out
+ * through the panel's padding to its left edge and across to the right edge
+ * of the panel's content.
  */
 function Loupe(props: ComponentProps<typeof Field>) {
   const region = props.padding + Math.min(props.size, 24) * 0.75 + 4
-  const zoom = clamp(Math.floor((LOUPE_HEIGHT - LOUPE_INSET) / region), 2, 6)
+  const zoom = clamp(Math.floor(LOUPE_VIEW / region), 2, 6)
 
   return (
     <div
       aria-hidden
-      style={{ width: SPECIMEN_WIDTH, height: LOUPE_HEIGHT }}
-      className="relative overflow-hidden rounded-md bg-muted"
+      style={{ height: LOUPE_HEIGHT, marginLeft: -PANEL_PADDING }}
+      className="relative mt-auto shrink-0 overflow-hidden rounded-bl-[calc(var(--radius-lg)-1px)]"
     >
       <div
         style={{
@@ -119,9 +129,6 @@ function Loupe(props: ComponentProps<typeof Field>) {
       >
         <Field {...props} />
       </div>
-      <span className="absolute bottom-2 left-2.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase tabular-nums">
-        {zoom}×
-      </span>
     </div>
   )
 }
@@ -129,33 +136,40 @@ function Loupe(props: ComponentProps<typeof Field>) {
 function Panel({
   label,
   good,
+  note,
   inner,
   ...field
 }: {
   label: string
   good: boolean
+  /** Why this panel's number is what it is, when that isn't obvious. */
+  note?: string
 } & ComponentProps<typeof Field>) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 self-stretch rounded-lg border border-border bg-background p-4">
-      <div className="flex items-center gap-2 border-b border-black/10 pb-3 dark:border-white/10">
-        {/* size-4 pairs with text-sm: the icon matches the cap height. */}
-        {good ? (
-          <CheckCircleIcon
-            weight="fill"
-            className="size-4 shrink-0 text-in-range"
-          />
-        ) : (
-          <XCircleIcon
-            weight="fill"
-            className="size-4 shrink-0 text-muted-foreground"
-          />
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          {/* size-4 pairs with text-sm: the icon matches the cap height. */}
+          {good ? (
+            <CheckCircleIcon
+              weight="fill"
+              className="size-4 shrink-0 text-in-range"
+            />
+          ) : (
+            <XCircleIcon
+              weight="fill"
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+          )}
+          <span className="text-sm font-medium">{label}</span>
+          <span className="ml-auto text-sm text-muted-foreground tabular-nums">
+            inner {formatRadius(inner)}
+          </span>
+        </div>
+        {note && (
+          <p className="text-xs text-pretty text-muted-foreground">{note}</p>
         )}
-        <span className="text-sm font-medium">{label}</span>
-        <span className="ml-auto text-sm text-muted-foreground tabular-nums">
-          inner {formatRadius(inner)}
-        </span>
       </div>
-      <Field inner={inner} {...field} />
       <Loupe inner={inner} {...field} />
     </div>
   )
@@ -215,10 +229,13 @@ export function ConcentricRadiiDemo({
 }: ComponentProps<"div">) {
   const [outer, setOuter] = useState(DEFAULT_OUTER)
   const [padding, setPadding] = useState(DEFAULT_PADDING)
-  const [size, setSize] = useState(DEFAULT_SIZE)
+  const size = SIZE
 
   const naive = naiveConcentricRadius(outer, padding)
+  // Without an `own` radius the helper falls back to the floor once the
+  // padding passes the outer radius; the panel says so.
   const visual = visualConcentricRadius({ outer, padding, size })
+  const unpaired = padding > outer
 
   // Both report what is drawn: a radius past half the button is a circle.
   const naiveShown = Math.min(naive, size / 2)
@@ -243,12 +260,6 @@ export function ConcentricRadiiDemo({
           range={PADDING_RANGE}
           onChange={setPadding}
         />
-        <ControlRow
-          label="Size"
-          value={size}
-          range={SIZE_RANGE}
-          onChange={setSize}
-        />
       </div>
 
       <DemoFrame className="max-sm:w-full max-sm:min-w-0">
@@ -259,7 +270,17 @@ export function ConcentricRadiiDemo({
             inner={naiveShown}
             {...field}
           />
-          <Panel label="Visual" good inner={visualShown} {...field} />
+          <Panel
+            label="Visual"
+            good
+            note={
+              unpaired
+                ? "Too far from the edge to pair, so it keeps its own radius."
+                : undefined
+            }
+            inner={visualShown}
+            {...field}
+          />
         </div>
       </DemoFrame>
     </div>

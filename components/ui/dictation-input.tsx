@@ -106,9 +106,9 @@ export type VoiceFieldEffect = "glow" | "level" | "dots" | "none"
 /**
  * The mic button's corner radius.
  * - `"auto"`: visually concentric with the field — the textbook
- *   `fieldRadius - inset` where it holds, but never sharper than a 5px corner
- *   or half the field's radius while the field is curved, never rounder than
- *   the field, and at most half the button (see `visualConcentricRadius`)
+ *   `fieldRadius - inset`, but never under the floor (half the field's
+ *   radius, and at least a 2px minimum unless the field is smaller), and at
+ *   most half the button (see `visualConcentricRadius`)
  * - `"full"`: a circle
  * - a number: that radius, in px
  */
@@ -119,43 +119,52 @@ export type VoiceButtonRadius = "auto" | "full" | number
  * (https://labs.launchstudio.space/concentric-radii), inlined so this file
  * stays self-contained.
  *
- *   inner = min(outer, max(outer - padding, outer * ratio, floor), size / 2)
+ *   floor = max(outer * ratio, min(minimum, outer))
+ *   inner = max(outer - padding, floor)      when padding <= outer
+ *   inner = own (defaults to floor)          when padding >  outer
  *
  * The textbook `outer - padding` runs out on small radii — an 8px field with
  * an 8px inset leaves a 0px corner, square inside round. This keeps the
- * textbook value where it holds and puts a floor under it while the parent is
- * curved: at least half the outer radius, at least 5px (about where a corner
- * starts to read as rounded), never rounder than the parent, never more than
- * half the inner element's short side. A square parent keeps a square child;
- * a pill parent gets a pill child.
+ * textbook value where it holds and puts a floor under it: at least half the
+ * outer radius, and at least a 2px minimum (the smallest radius that still
+ * reads as rounded rather than square) unless the parent is smaller than
+ * that. Once the padding
+ * is bigger than the outer radius the corners no longer pair, so the inner
+ * element keeps its own radius. A square parent keeps a square child; a pill
+ * parent gets a pill child. `size` only clamps the number at half the inner
+ * element's short side, as the browser would.
  */
 export function visualConcentricRadius({
   outer,
   padding,
   size,
-  floor = 5,
+  own,
+  minimum = 2,
   ratio = 0.5,
 }: {
   /** The parent's corner radius in px, or `"full"` for a pill. */
   outer: number | "full"
   /** Gap between the parent's edge and the inner element, in px. */
   padding: number
-  /** The inner element's shorter side, in px. Caps the result at half of it. */
+  /** The inner element's shorter side, in px. Clamps the result at half of it. */
   size?: number
-  /** Smallest radius the inner element gets while the parent is curved. */
-  floor?: number
+  /** The inner element's own radius once padding > outer. Defaults to the floor. */
+  own?: number
+  /** The radius a curved parent's child never goes under, in px. */
+  minimum?: number
   /** Smallest share of the outer radius the inner element keeps. */
   ratio?: number
 }): number {
   const cap = size === undefined ? Infinity : Math.max(0, size / 2)
 
   if (outer === "full") return Math.min(9999, cap)
-  if (outer <= 0) return 0
 
-  const radius = Math.min(
-    outer,
-    Math.max(outer - padding, outer * ratio, floor)
-  )
+  const edge = Math.max(0, outer)
+  const gap = Math.max(0, padding)
+  const floor = Math.max(edge * ratio, Math.min(minimum, edge))
+  const radius =
+    gap <= edge ? Math.max(edge - gap, floor) : Math.max(0, own ?? floor)
+
   return Math.min(radius, cap)
 }
 
@@ -1030,8 +1039,9 @@ export function DictationInput({
         className={cn(
           "absolute top-1 right-1 z-20 size-7 group-has-[[data-slot=textarea]]/voice-field:top-2 group-has-[[data-slot=textarea]]/voice-field:right-2",
           // Until it is measured: the same visual rule against a shadcn
-          // rounded-lg field — min(R, max(R - inset, R / 2, 5px), 14px).
-          "[--voice-button-radius:min(var(--radius,0.5rem),max(calc(var(--radius,0.5rem)-4px),calc(var(--radius,0.5rem)*0.5),5px),14px)] group-has-[[data-slot=textarea]]/voice-field:[--voice-button-radius:min(var(--radius,0.5rem),max(calc(var(--radius,0.5rem)-8px),calc(var(--radius,0.5rem)*0.5),5px),14px)]"
+          // rounded-lg field — max(R - inset, R / 2, min(2px, R)), at most
+          // half the 28px button.
+          "[--voice-button-radius:min(max(calc(var(--radius,0.5rem)-4px),calc(var(--radius,0.5rem)*0.5),min(2px,var(--radius,0.5rem))),14px)] group-has-[[data-slot=textarea]]/voice-field:[--voice-button-radius:min(max(calc(var(--radius,0.5rem)-8px),calc(var(--radius,0.5rem)*0.5),min(2px,var(--radius,0.5rem))),14px)]"
         )}
       >
         <span

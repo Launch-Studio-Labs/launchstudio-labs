@@ -1,7 +1,5 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
-
 import { CodeBlock, Command } from "@/components/code-block"
 import {
   DictationInputDemo,
@@ -12,19 +10,16 @@ import {
   propTable,
   type ApiRow,
 } from "@/components/docs/api-reference"
-import { CopyStateIcon } from "@/components/docs/copy-state-icon"
+import { CopyPromptButton } from "@/components/docs/copy-button"
 import { Code, Section } from "@/components/docs/section"
 import { Steps } from "@/components/docs/steps"
 import { PageHeader } from "@/components/page-header"
 import { Prose } from "@/components/prose"
 import { SkillDialog } from "@/components/skill-dialog"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { DictationInputOwnProps } from "@/components/ui/dictation-input"
-import { copyText } from "@/lib/copy-text"
 import { useRegistryOrigin } from "@/lib/use-registry-origin"
-import { cn } from "@/lib/utils"
 
 const REPO = "https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main"
 
@@ -298,47 +293,6 @@ function PromptCard({ prompt, skill }: { prompt: string; skill: string }) {
         <SkillDialog skill={skill} />
       </div>
     </div>
-  )
-}
-
-/**
- * Copies the prompt. Only the icon reacts to a copy — the label stays, so the
- * button never changes size; screen readers hear it instead.
- */
-function CopyPromptButton({
-  prompt,
-  variant,
-  className,
-  children,
-}: {
-  prompt: string
-  variant?: "default" | "secondary"
-  className?: string
-  children: ReactNode
-}) {
-  const [copied, setCopied] = useState(false)
-
-  async function copy() {
-    if (!(await copyText(prompt))) return
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1600)
-  }
-
-  return (
-    <>
-      <Button
-        size="sm"
-        variant={variant}
-        onClick={copy}
-        className={cn("gap-1.5 pr-3 pl-2.5 text-xs", className)}
-      >
-        <CopyStateIcon copied={copied} />
-        {children}
-      </Button>
-      <span className="sr-only" aria-live="polite">
-        {copied ? "Prompt copied" : ""}
-      </span>
-    </>
   )
 }
 

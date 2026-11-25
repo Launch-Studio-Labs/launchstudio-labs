@@ -12,11 +12,16 @@ breaking them fails `pnpm lint` or `pnpm typecheck`.
 
 - **A rounded element nested in a rounded container takes its radius from
   `visualConcentricRadius` (`lib/visual-concentric-radius.ts`):
-  `min(R, max(R − inset, R × 0.5, 5px), size / 2)`. Never plain `R − inset`.**
-  A square container keeps a square child; a pill container gets a circle.
+  `floor = max(R × 0.5, min(2px, R))`, then `max(R − inset, floor)` while
+  `inset ≤ R`; past that the child keeps its own radius. Never plain
+  `R − inset`.**
+  The 2px is the **minimum**, the combined lower bound is the **floor**, the ½
+  is the **ratio**. A square container keeps a square child; a pill container
+  gets a circle.
   Why: the textbook rule leaves near-sharp inner corners at small radii (a
   7.2px field with a 4px inset gives 3.2px; 8px with 8px gives 0), and that
-  "does not look visually right."
+  "does not look visually right." Once the inset is bigger than the radius the
+  corners no longer read as a pair, so there is nothing to keep concentric.
   <!-- 2026-11: "the inner voice button has totally sharp corners… does not look visually right… the inner one should never go under a certain limit" -->
 
 - **Numbered step lists in docs use `Steps` (`components/docs/steps.tsx`):

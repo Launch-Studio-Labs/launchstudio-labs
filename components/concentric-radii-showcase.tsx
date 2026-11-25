@@ -5,6 +5,11 @@ import {
   HandFormulaLine,
   HandTerm,
 } from "@/components/docs/hand-formula"
+import {
+  ScribbleAnchor,
+  ScribbledFormula,
+  type Scribble,
+} from "@/components/docs/scribbled-formula"
 import { PageHeader } from "@/components/page-header"
 import { Prose } from "@/components/prose"
 import { Separator } from "@/components/ui/separator"
@@ -20,19 +25,45 @@ const BREAK = [
 ]
 
 const RULE_LEAD = [
-  "To achieve this we keep the concentric value and **put a floor under it**:",
+  "So keep the concentric value as the ideal, **put a floor under it**, and only do any of this **while the inner element sits close to the edge**:",
 ]
 
 const RULE = [
-  "There are two floors. **Half the outer radius** keeps the inner corner in the same family as the outer one. **5px** is roughly where a corner starts to read as round: the arc sits about 2px in from where the corner would be. Big radii clear both, so they stay truly concentric.",
-  "Then cap it. Never rounder than the parent, so a square parent keeps a square child. And never more than **half the inner element's short side**, which is already a circle; the browser draws it that way anyway, but the number should say what's on screen.",
+  "The floor has two parts. **Half the outer radius** keeps the inner corner in the same family as the outer one. A **2px minimum** is about the smallest radius that still reads as rounded rather than square, so the inner corner is never fully sharp. It only takes over below a 4px outer radius, where half would dip under it. If the outer corner is smaller than 2px, the minimum drops to match it, so the inside is never rounder than the outside. Big radii clear the floor and stay truly concentric.",
+  "Concentric only reads while the two edges are close. **Once the padding is bigger than the outer radius**, the corners stop looking like a pair, so the inner element simply keeps its own radius.",
   "A pill inside a pill needs none of this. Half the outer height minus the padding is exactly half the inner height, so the textbook rule is right there: **pill in, pill out**.",
   "One aside: `corner-shape: squircle` (Chromium only for now) eases the curve into the straight edge, so the same radius looks smaller. If you use it, nudge the radii up. The floor still applies.",
 ]
 
 const USE = [
-  "Grab the helper from the registry, or take the CSS if a stylesheet is all you have. Both apply the same rule; the CSS leaves the size cap to the browser.",
+  "Grab the helper from the registry, or take the CSS if a stylesheet is all you have. Both apply the same rule. The helper also takes an optional `own` radius for when the padding passes the outer one, and an optional `size` that clamps the number it reports at half the element, which the browser does anyway.",
 ]
+
+/**
+ * The margin notes on the rule. Positions are px from the top-left of the term
+ * each one is anchored on; see `ScribbleAnchor`.
+ */
+const SCRIBBLES = {
+  ideal: {
+    text: "what true concentric gives you",
+    at: { left: 22, top: 44, width: 150, rotate: -2 },
+    arrow: ["M30 52C24 43 42 37 64 33", "M56.5 31 64 33l-4.5 6"],
+  },
+  floor: {
+    text: "a floor, so the corner is never sharp",
+    at: { left: -4, top: -62, width: 170, rotate: -3 },
+    arrow: ["M56 -15C48 -9 30 -11 24 0", "M21.5 -7.5 24 0l6.5 -4"],
+  },
+  minimum: {
+    text: "2px minimum",
+    at: { left: 124, top: -46, width: 138, rotate: 2 },
+    arrow: ["M121 -24C107 -33 98 -20 103 -3", "M98 -8.5 103 -3l3 -7"],
+  },
+  cutoff: {
+    text: "(only when padding ≤ outer, otherwise it keeps its own radius)",
+    at: { left: 14, top: 4, width: 120, rotate: -1.5 },
+  },
+} satisfies Record<string, Scribble>
 
 const INSTALL =
   "pnpm dlx shadcn@latest add https://labs.launchstudio.space/r/visual-concentric-radius.json"
@@ -40,22 +71,27 @@ const INSTALL =
 const SNIPPETS = {
   ts: `import { visualConcentricRadius } from "@/lib/visual-concentric-radius"
 
-visualConcentricRadius({ outer: 7.2, padding: 4, size: 28 }) // 5
-visualConcentricRadius({ outer: 8, padding: 8, size: 28 }) // 5
+visualConcentricRadius({ outer: 7.2, padding: 4, size: 28 }) // 3.6
+visualConcentricRadius({ outer: 16, padding: 12 }) // 8
 visualConcentricRadius({ outer: 24, padding: 8 }) // 16
+visualConcentricRadius({ outer: 6, padding: 12, own: 8 }) // 8, its own
 visualConcentricRadius({ outer: "full", padding: 4, size: 28 }) // 14`,
-  css: `/* Set --outer and --padding on the parent; 9999px for a pill. */
+  css: `/* Set --outer and --padding on the parent; 9999px for a pill.
+   Once --padding is bigger than --outer, give the child its own radius. */
 .nested {
-  border-radius: min(
-    var(--outer),
-    max(var(--outer) - var(--padding), var(--outer) * 0.5, 5px)
+  border-radius: max(
+    var(--outer) - var(--padding),
+    var(--outer) * 0.5,
+    min(2px, var(--outer))
   );
 }`,
   tailwind: `/* globals.css */
+/* Once --padding is bigger than --outer, use the child's own radius. */
 @utility rounded-concentric {
-  border-radius: min(
-    var(--outer),
-    max(var(--outer) - var(--padding), var(--outer) * 0.5, 5px)
+  border-radius: max(
+    var(--outer) - var(--padding),
+    var(--outer) * 0.5,
+    min(2px, var(--outer))
   );
 }
 
@@ -93,17 +129,38 @@ export function ConcentricRadiiShowcase() {
 
       <div className="labs-enter labs-enter-delay-3 flex flex-col gap-6">
         <Prose paragraphs={RULE_LEAD} />
-        <HandFormula>
-          <HandFormulaLine>
-            base = max(<HandTerm term="outer">outer</HandTerm> −{" "}
-            <HandTerm term="padding">padding</HandTerm>,{" "}
-            <HandTerm term="outer">outer</HandTerm> / 2, 5)
-          </HandFormulaLine>
-          <HandFormulaLine>
-            <HandTerm term="inner">inner</HandTerm> = min(base,{" "}
-            <HandTerm term="outer">outer</HandTerm>, size / 2)
-          </HandFormulaLine>
-        </HandFormula>
+        <ScribbledFormula
+          scribbles={[
+            SCRIBBLES.ideal,
+            SCRIBBLES.floor,
+            SCRIBBLES.minimum,
+            SCRIBBLES.cutoff,
+          ]}
+          room={{ top: 72, bottom: 72 }}
+          example="e.g. outer 16, padding 12 → 4 … too sharp, so the floor bumps it to 8"
+        >
+          <HandFormula className="sm:pl-2">
+            <HandFormulaLine>
+              <ScribbleAnchor scribble={SCRIBBLES.floor}>
+                <HandTerm term="floor">floor</HandTerm>
+              </ScribbleAnchor>{" "}
+              = max( <HandTerm term="outer">outer</HandTerm> / 2,{" "}
+              <ScribbleAnchor scribble={SCRIBBLES.minimum}>
+                min(2, <HandTerm term="outer">outer</HandTerm>)
+              </ScribbleAnchor>{" "}
+              )
+            </HandFormulaLine>
+            <HandFormulaLine>
+              <HandTerm term="inner">inner</HandTerm> = max({" "}
+              <ScribbleAnchor scribble={SCRIBBLES.ideal}>
+                <HandTerm term="outer">outer</HandTerm> −{" "}
+                <HandTerm term="padding">padding</HandTerm>
+              </ScribbleAnchor>
+              , <HandTerm term="floor">floor</HandTerm>{" "}
+              <ScribbleAnchor scribble={SCRIBBLES.cutoff}>)</ScribbleAnchor>
+            </HandFormulaLine>
+          </HandFormula>
+        </ScribbledFormula>
         <Prose paragraphs={RULE} />
       </div>
 

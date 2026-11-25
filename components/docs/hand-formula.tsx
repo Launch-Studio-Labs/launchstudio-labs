@@ -11,7 +11,7 @@ export function HandFormula({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col font-hand text-[23px] leading-normal font-medium tracking-[-0.02em] text-[#272624] italic",
+        "flex min-w-0 flex-col font-hand text-[28px] leading-normal font-medium tracking-[-0.02em] text-[#272624] italic",
         className
       )}
       {...props}
@@ -35,6 +35,8 @@ const TERMS = {
     "text-[#9a4316] bg-[linear-gradient(183deg,transparent_60%,#ffd3a8_62%,#ffd3a8_89%,transparent_91%)]",
   padding:
     "text-[#246448] bg-[linear-gradient(177deg,transparent_60%,#d4eddb_62%,#d4eddb_89%,transparent_91%)]",
+  floor:
+    "text-[#7a5b07] bg-[linear-gradient(182deg,transparent_60%,#fbe8a6_62%,#fbe8a6_89%,transparent_91%)]",
 }
 
 export function HandTerm({
