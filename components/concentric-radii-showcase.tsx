@@ -21,19 +21,10 @@ const INTRO = [
 
 const BREAK = [
   "That works while the radii are big but on small ones the visuals starts to break, and you get sharp corners inside round ones.",
-  "The math is right. It just looks wrong. Your eye doesn't find centres, it compares corners. The easiest fix is to keep the math and just **never let the inner corner go sharp while the outer one is curved**.",
+  "The math is right. It just looks wrong. The easiest fix is to keep the math and just **never let the inner corner go sharp while the outer one is curved**.",
 ]
 
-const RULE_LEAD = [
-  "So keep the concentric value as the ideal, **put a floor under it**, and only do any of this **while the inner element sits close to the edge**:",
-]
-
-const RULE = [
-  "The floor has two parts. **Half the outer radius** keeps the inner corner in the same family as the outer one. A **2px minimum** is about the smallest radius that still reads as rounded rather than square, so the inner corner is never fully sharp. It only takes over below a 4px outer radius, where half would dip under it. If the outer corner is smaller than 2px, the minimum drops to match it, so the inside is never rounder than the outside. Big radii clear the floor and stay truly concentric.",
-  "Concentric only reads while the two edges are close. **Once the padding is bigger than the outer radius**, the corners stop looking like a pair, so the inner element simply keeps its own radius.",
-  "A pill inside a pill needs none of this. Half the outer height minus the padding is exactly half the inner height, so the textbook rule is right there: **pill in, pill out**.",
-  "One aside: `corner-shape: squircle` (Chromium only for now) eases the curve into the straight edge, so the same radius looks smaller. If you use it, nudge the radii up. The floor still applies.",
-]
+const RULE_LEAD = ["So we keep the concentric value and just **put a floor under it:**"]
 
 const USE = [
   "Grab the helper from the registry, or take the CSS if a stylesheet is all you have. Both apply the same rule. The helper also takes an optional `own` radius for when the padding passes the outer one, and an optional `size` that clamps the number it reports at half the element, which the browser does anyway.",
@@ -161,10 +152,7 @@ export function ConcentricRadiiShowcase() {
             </HandFormulaLine>
           </HandFormula>
         </ScribbledFormula>
-        <Prose paragraphs={RULE} />
       </div>
-
-      <Separator className="labs-enter labs-enter-delay-3" />
 
       <div className="labs-enter labs-enter-delay-3 flex flex-col gap-6">
         <Prose paragraphs={USE} />

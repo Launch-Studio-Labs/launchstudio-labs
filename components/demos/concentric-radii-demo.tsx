@@ -247,21 +247,6 @@ export function ConcentricRadiiDemo({
       className={cn("flex w-content max-w-full flex-col gap-6", className)}
       {...props}
     >
-      <div className="grid auto-rows-8 grid-cols-[4.5rem_1fr_auto] items-center gap-x-4 gap-y-2">
-        <ControlRow
-          label="Outer"
-          value={outer}
-          range={OUTER_RANGE}
-          onChange={setOuter}
-        />
-        <ControlRow
-          label="Padding"
-          value={padding}
-          range={PADDING_RANGE}
-          onChange={setPadding}
-        />
-      </div>
-
       <DemoFrame className="max-sm:w-full max-sm:min-w-0">
         <div className="flex flex-col gap-4 self-stretch sm:flex-row sm:items-center sm:justify-between">
           <Panel
@@ -283,6 +268,21 @@ export function ConcentricRadiiDemo({
           />
         </div>
       </DemoFrame>
+
+      <div className="grid auto-rows-8 grid-cols-[4.5rem_1fr_auto] items-center gap-x-4 gap-y-2">
+        <ControlRow
+          label="Outer"
+          value={outer}
+          range={OUTER_RANGE}
+          onChange={setOuter}
+        />
+        <ControlRow
+          label="Padding"
+          value={padding}
+          range={PADDING_RANGE}
+          onChange={setPadding}
+        />
+      </div>
     </div>
   )
 }
