@@ -1,8 +1,9 @@
 import type { ComponentType } from "react"
 
 import { BodyCopyDemo } from "@/components/demos/body-copy-demo"
-import { EmptyStateDemo } from "@/components/demos/empty-state-demo"
+import { ConcentricRadiiDemo } from "@/components/demos/concentric-radii-demo"
 import { MeasureDemo } from "@/components/demos/measure-demo"
+import { DictationInputDemo } from "@/components/demos/dictation-input-demo"
 
 export type Demo = {
   /** Also the playground's URL segment: /playground/<id>. */
@@ -19,9 +20,9 @@ export type Demo = {
  */
 export const demos: Demo[] = [
   {
-    id: "empty-state",
-    title: "Empty state",
-    component: EmptyStateDemo,
+    id: "dictation-input",
+    title: "Dictation Input",
+    component: DictationInputDemo,
   },
   {
     id: "width-and-leading",
@@ -32,6 +33,11 @@ export const demos: Demo[] = [
     id: "body-copy-card",
     title: "Body copy card",
     component: BodyCopyDemo,
+  },
+  {
+    id: "concentric-radii",
+    title: "Concentric radii",
+    component: ConcentricRadiiDemo,
   },
 ]
 

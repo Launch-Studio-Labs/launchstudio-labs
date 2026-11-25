@@ -1,3 +1,5 @@
+Before building or changing UI, read DESIGN.md.
+
 Use shadcn as the component foundation whenever an appropriate primitive exists. Before introducing a new component, check the official shadcn library and relevant registry.
 
 Restyle shadcn defaults instead of adding Launch-specific variants:
@@ -39,6 +41,11 @@ of truth: `PageHeader` takes the route and prints the title from the list, the
 sidebar is built from the same list, and the document title is `docsTitle()` of
 it. Adding a page means adding it there — and renaming one means editing one
 string, not three.
+
+Only `PageHeader` renders an `<h1>`: a raw `<h1>` anywhere else in `app/` or
+`components/` is a lint error, so a headline can't say something different from
+the sidebar. `PageHeader` also owns the headline's size (24px); a page passes an
+`action` for something beside it, never a size.
 
 ## Demos and the playground
 

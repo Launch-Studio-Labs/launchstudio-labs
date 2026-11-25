@@ -61,7 +61,7 @@ const emptyStateContent = {
     eyebrow: "Connection lost",
     title: "We couldn’t load this page",
     description:
-      "Something interrupted the request. Your work is safe—give it another try.",
+      "Something interrupted the request. Your work is safe. Give it another try.",
     action: "Try again",
     icon: WarningCircleIcon,
   },
@@ -69,7 +69,7 @@ const emptyStateContent = {
 
 export type EmptyStateVariant = keyof typeof emptyStateContent
 
-type EmptyStateProps = {
+export type EmptyStateProps = {
   variant?: EmptyStateVariant
   title?: string
   description?: string

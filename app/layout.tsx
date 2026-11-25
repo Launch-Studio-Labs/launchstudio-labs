@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono, Lora } from "next/font/google"
+import { Caveat, Geist, Geist_Mono, Lora } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -13,6 +13,9 @@ const fontMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
 })
+
+/** Handwriting, for formulas written out as if on a whiteboard. */
+const fontHand = Caveat({ subsets: ["latin"], variable: "--font-hand-family" })
 
 export const metadata: Metadata = {
   // The site's own name and pitch. Every page overrides both with its own,
@@ -38,11 +41,18 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
+      // Page entrance animations only play in production builds. In dev the
+      // page renders in its final state, so design-tool snapshots never
+      // catch it mid-fade.
+      data-enter-animations={
+        process.env.NODE_ENV === "production" ? "on" : "off"
+      }
       className={cn(
         "font-sans antialiased",
         fontSans.variable,
         fontSerif.variable,
-        fontMono.variable
+        fontMono.variable,
+        fontHand.variable
       )}
     >
       <body>

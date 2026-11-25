@@ -1,0 +1,1641 @@
+"use client"
+
+/**
+ * Dictation Input — a normal text field with a microphone in its corner.
+ *
+ * The field stays a field: people type into it as usual. The mic is the
+ * extra. Recording plays Voice Glow along the field and shows "Listening",
+ * the clock and the microphone under it; stopping sends the take for
+ * transcription and writes the text back into the same field. Once there is a
+ * recording, the corner button turns into a reset (with a confirm), a recap
+ * player sits under the field, and a line pinned inside the field says
+ * whether recordings are sent (and, by default, lets the person choose).
+ * With `recordingPolicy="never"` there is neither player nor line.
+ *
+ * Wrap your own shadcn `Input` / `Textarea`; `recordingPolicy` decides
+ * whether the person chooses about sending recordings, or the app does.
+ *
+ * Part of the Launch Studio Labs Dictation Input component.
+ * https://labs.launchstudio.space/dictation-input
+ *
+ * The glow is Voice Glow by Jakub Antalik — https://libraries.dev/voice —
+ * used through the `voice-glow` npm package under the MIT License,
+ * Copyright (c) 2026 Jakub Antalik.
+ */
+
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react"
+import {
+  ArrowCounterClockwiseIcon,
+  CaretDownIcon,
+  CircleNotchIcon,
+  MicrophoneIcon,
+  StopIcon,
+} from "@phosphor-icons/react"
+import {
+  VoiceBeam,
+  voicePalettes,
+  type VoiceBeamColorVariant,
+  type VoiceBeamMotion,
+} from "voice-glow"
+
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { LiveWaveform, VoicePlayer } from "@/components/ui/voice-waveform"
+import {
+  useVoiceRecorder,
+  type VoiceRecorder,
+  type VoiceRecorderProblem,
+  type VoiceRecorderStatus,
+  type VoiceTake,
+} from "@/hooks/use-voice-recorder"
+import { cn } from "@/lib/utils"
+import { formatElapsed, type AudioInput } from "@/lib/voice-recording"
+
+export type { VoiceTake } from "@/hooks/use-voice-recorder"
+
+// ── Public types ──
+
+/**
+ * Whether recordings are sent along with the transcript: the person's call
+ * (`ask`), or fixed by the app (`always` / `never`).
+ */
+export type VoiceRecordingPolicy = "ask" | "always" | "never"
+
+/**
+ * How the transcript lands in the field.
+ * - `replace`: it becomes the field's text (the portal behaviour)
+ * - `append`: it is added after what is already there
+ */
+export type VoiceInsertMode = "replace" | "append"
+
+/**
+ * How the voice is drawn inside the field while recording. Each one keeps
+ * moving in its own way while the take is transcribed.
+ * - `glow`: Voice Glow along the field (the portal's)
+ * - `level`: a row of bars across the field that rise with the voice
+ * - `dots`: a scrolling history of the voice as dots along the field
+ * - `none`: nothing
+ */
+export type VoiceFieldEffect = "glow" | "level" | "dots" | "none"
+
+/**
+ * The mic button's corner radius.
+ * - `"auto"`: visually concentric with the field — the textbook
+ *   `fieldRadius - inset`, but never under the floor (half the field's
+ *   radius, and at least a 2px minimum unless the field is smaller), and at
+ *   most half the button (see `visualConcentricRadius`)
+ * - `"full"`: a circle
+ * - a number: that radius, in px
+ */
+export type VoiceButtonRadius = "auto" | "full" | number
+
+/**
+ * The visually concentric rule from the Labs Concentric radii practice
+ * (https://labs.launchstudio.space/concentric-radii), inlined so this file
+ * stays self-contained.
+ *
+ *   floor = max(outer * ratio, min(minimum, outer))
+ *   inner = max(outer - padding, floor)      when padding <= outer
+ *   inner = own (defaults to floor)          when padding >  outer
+ *
+ * The textbook `outer - padding` runs out on small radii — an 8px field with
+ * an 8px inset leaves a 0px corner, square inside round. This keeps the
+ * textbook value where it holds and puts a floor under it: at least half the
+ * outer radius, and at least a 2px minimum (the smallest radius that still
+ * reads as rounded rather than square) unless the parent is smaller than
+ * that. Once the padding
+ * is bigger than the outer radius the corners no longer pair, so the inner
+ * element keeps its own radius. A square parent keeps a square child; a pill
+ * parent gets a pill child. `size` only clamps the number at half the inner
+ * element's short side, as the browser would.
+ */
+export function visualConcentricRadius({
+  outer,
+  padding,
+  size,
+  own,
+  minimum = 2,
+  ratio = 0.5,
+}: {
+  /** The parent's corner radius in px, or `"full"` for a pill. */
+  outer: number | "full"
+  /** Gap between the parent's edge and the inner element, in px. */
+  padding: number
+  /** The inner element's shorter side, in px. Clamps the result at half of it. */
+  size?: number
+  /** The inner element's own radius once padding > outer. Defaults to the floor. */
+  own?: number
+  /** The radius a curved parent's child never goes under, in px. */
+  minimum?: number
+  /** Smallest share of the outer radius the inner element keeps. */
+  ratio?: number
+}): number {
+  const cap = size === undefined ? Infinity : Math.max(0, size / 2)
+
+  if (outer === "full") return Math.min(9999, cap)
+
+  const edge = Math.max(0, outer)
+  const gap = Math.max(0, padding)
+  const floor = Math.max(edge * ratio, Math.min(minimum, edge))
+  const radius =
+    gap <= edge ? Math.max(edge - gap, floor) : Math.max(0, own ?? floor)
+
+  return Math.min(radius, cap)
+}
+
+/** What `onTranscribe` resolves with. */
+export interface VoiceTranscription {
+  transcript: string
+  /**
+   * Your reference to the stored audio, if the server kept it. Handed back
+   * to `onDeleteRecording` when the person resets, re-records, or turns
+   * sending recordings off.
+   */
+  audioId?: string | null
+}
+
+export interface VoiceTranscribeContext {
+  /**
+   * The person's choice. False means: transcribe, then throw the audio away
+   * — do not store it, do not forward it. The component also leaves the
+   * audio out of the result it hands to `onResult`.
+   */
+  sendRecording: boolean
+  /** Aborted when the person cancels or the component unmounts. */
+  signal: AbortSignal
+}
+
+export type VoiceTranscribe = (
+  take: VoiceTake,
+  context: VoiceTranscribeContext
+) => Promise<VoiceTranscription>
+
+/**
+ * Throw from `onTranscribe` to pick the message the person sees.
+ * - `empty`: the model heard no words (shown as a microphone problem if the
+ *   take was flat silence)
+ * - `unconfigured`: transcription is not set up on this server
+ * - `failed`: anything else; the take is kept so "Try again" can resend it
+ */
+export class VoiceTranscriptionError extends Error {
+  constructor(
+    readonly code: "empty" | "unconfigured" | "failed",
+    message?: string
+  ) {
+    super(message ?? code)
+    this.name = "VoiceTranscriptionError"
+  }
+}
+
+export interface VoiceResult {
+  transcript: string
+  /** The field's text after the transcript was written in. */
+  value: string
+  durationMs: number
+  /** The recording — or null when the person chose not to send it. */
+  audio: Blob | null
+  mimeType: string
+  /** From `onTranscribe`; null when nothing was stored. */
+  audioId: string | null
+  /** Whether the audio was sent along with this result. */
+  sentRecording: boolean
+}
+
+export type DictationInputProblem =
+  | VoiceRecorderProblem
+  | "silent"
+  | "empty"
+  | "unconfigured"
+  | "failed"
+  | "delete-failed"
+
+export interface DictationInputLabels {
+  record: string
+  stop: string
+  preparing: string
+  listening: string
+  quiet: string
+  processing: string
+  retry: string
+  reset: string
+  resetTitle: string
+  resetBody: (length: string) => string
+  resetConfirm: string
+  resetCancel: string
+  microphone: string
+  chooseMic: string
+  systemDefault: string
+  recordingsSent: string
+  recordingsWithheld: string
+  withholdRecordings: string
+  sendRecordings: string
+  play: string
+  pausePlayback: string
+  position: string
+  problems: Record<DictationInputProblem, string>
+  announce: {
+    recording: (mic: string) => string
+    done: string
+    cancelled: string
+    reset: string
+    switched: (mic: string) => string
+    nextMic: (mic: string) => string
+  }
+}
+
+/** The portal's copy, minus anything questionnaire-specific. */
+export const dictationInputLabels: DictationInputLabels = {
+  record: "Record voice answer",
+  stop: "Stop and submit recording",
+  preparing: "Getting the microphone ready…",
+  listening: "Listening",
+  quiet: "No sound yet",
+  processing: "Writing your answer…",
+  retry: "Try again",
+  reset: "Reset recording & answer",
+  resetTitle: "Reset this answer?",
+  resetBody: (length) =>
+    `This deletes the ${length} recording and clears the text. It can't be undone.`,
+  resetConfirm: "Delete",
+  resetCancel: "Cancel",
+  microphone: "Microphone",
+  chooseMic: "Choose microphone",
+  systemDefault: "System default",
+  recordingsSent: "Full recordings are sent with your answers.",
+  recordingsWithheld: "Recordings won't be sent with your answers.",
+  withholdRecordings: "Don't send recordings",
+  sendRecordings: "Send recordings",
+  play: "Play recording",
+  pausePlayback: "Pause recording",
+  position: "Recording position",
+  problems: {
+    unsupported: "This browser can't record audio. Type your answer instead.",
+    insecure:
+      "Recording needs a secure (https) page. Type your answer instead.",
+    denied:
+      "Microphone access is blocked. Allow it in the browser, or type your answer.",
+    "no-device": "No microphone was found. Type your answer instead.",
+    "too-short":
+      "That was too short. Say your answer, then stop the recording.",
+    error:
+      "Couldn't turn that recording into an answer. Try again, or type it.",
+    silent:
+      "Your microphone didn't pick up any sound. Choose another one, or check your system's input settings.",
+    empty:
+      "We couldn't make out any words. Try again a little closer to the microphone, or type your answer.",
+    unconfigured:
+      "Voice answers aren't available right now. Type your answer instead.",
+    failed:
+      "Couldn't transcribe that recording. Try again, or type your answer.",
+    "delete-failed": "Couldn't delete the stored recording. Try again.",
+  },
+  announce: {
+    recording: (mic) => `Recording with ${mic}. Press Escape to cancel.`,
+    done: "Answer written from your recording.",
+    cancelled: "Recording cancelled.",
+    reset: "Recording and answer cleared.",
+    switched: (mic) => `Switched to ${mic}. Recording started again.`,
+    nextMic: (mic) => `The next recording will use ${mic}.`,
+  },
+}
+
+/** Keys the recap player, so each new take mounts a fresh one. */
+let takeCounter = 0
+function nextTakeId() {
+  takeCounter += 1
+  return takeCounter
+}
+
+/** Problems where re-sending the same take can succeed. */
+const RETRYABLE = new Set<DictationInputProblem>(["failed", "error"])
+/** Problems where the microphone itself is the likely culprit. */
+const MIC_PROBLEMS = new Set<DictationInputProblem>([
+  "empty",
+  "silent",
+  "no-device",
+])
+/** Breathing room between the last line of text and the note inside the field. */
+const NOTE_GAP = 8
+
+/** Greys for the glow's band, so `glowVariant="mono"` reads as neutral. */
+const NEUTRAL_BAND = {
+  light: {
+    core: "#404040",
+    above: "#737373",
+    mid: "#a3a3a3",
+    below: "#d4d4d4",
+  },
+  dark: { core: "#ffffff", above: "#d4d4d4", mid: "#a3a3a3", below: "#737373" },
+} as const
+
+/** The props Dictation Input adds; everything else goes to the root `div`. */
+export interface DictationInputOwnProps {
+  /**
+   * The field to put the mic on: your shadcn `Input` or `Textarea` (or any
+   * element with `data-slot="input"` / `"textarea"`).
+   */
+  children: ReactNode
+  /** The field's text — the same value the field shows. */
+  value?: string
+  /** A transcript was written in (or the answer reset): the field's new text. */
+  onValueChange?: (value: string) => void
+  /** @default "replace" */
+  insert?: VoiceInsertMode
+
+  // Pipeline
+  /** Turns a take into text. Leave it out for a mic that only records. */
+  onTranscribe?: VoiceTranscribe
+  /** A transcript landed. */
+  onResult?: (result: VoiceResult) => void
+  /** The person reset the answer (after the confirm). */
+  onReset?: () => void
+  /**
+   * Remove stored audio. Called with the result whenever a stored recording
+   * should stop existing: reset, a new take replacing it, or sending turned
+   * off after it was sent. Only called when the result carries an `audioId`.
+   * Reject to show "couldn't delete".
+   */
+  onDeleteRecording?: (result: VoiceResult) => void | Promise<void>
+  /** Recording started or stopped — e.g. to block the mic on other fields. */
+  onActiveChange?: (active: boolean) => void
+
+  // Privacy
+  /**
+   * Whether recordings go along with the transcript.
+   * - `"ask"`: the person decides, with a line inside the field
+   * - `"always"`: always sent; the line stays as a notice, without the switch
+   * - `"never"`: never sent — transcribed, then thrown away; no line
+   * @default "ask"
+   */
+  recordingPolicy?: VoiceRecordingPolicy
+  /**
+   * Controlled: the person's choice, with `recordingPolicy="ask"`. Starts on
+   * sending when left out.
+   */
+  sendRecording?: boolean
+  onSendRecordingChange?: (send: boolean) => void
+
+  // Recording
+  /** @default 300000 (5 minutes) */
+  maxDurationMs?: number
+  /** Replaces getUserMedia — tests, demos, custom sources. */
+  getStream?: (constraints: MediaStreamConstraints) => Promise<MediaStream>
+  /** Disables the mic (the field stays usable). */
+  disabled?: boolean
+  /**
+   * A simulated voice instead of the microphone, for docs, design reviews and
+   * screenshots. No microphone is ever opened.
+   *
+   * - `"recording"` holds the field mid-take: the effect, the stop button,
+   *   "Listening" and the clock run; stop and Escape do nothing.
+   * - `"interactive"` runs the whole flow: the mic starts a simulated take,
+   *   and stop hands a generated recording to `onTranscribe` as usual.
+   * - `"recorded"` is `"interactive"` that starts finished: a generated
+   *   recording goes to `onTranscribe` on mount, so the field shows the
+   *   answer, the player and the recording line.
+   */
+  preview?: "recording" | "interactive" | "recorded"
+
+  // Look
+  /**
+   * The voice drawn inside the field while recording, and its motion while
+   * the take is transcribed. @default "glow"
+   */
+  fieldEffect?: VoiceFieldEffect
+  /** The mic button's corner radius. @default "auto" (visually concentric) */
+  buttonRadius?: VoiceButtonRadius
+  /** The palette for the glow and every field effect. @default "mono" (neutral) */
+  glowVariant?: VoiceBeamColorVariant
+
+  labels?: Partial<Omit<DictationInputLabels, "problems" | "announce">> & {
+    problems?: Partial<DictationInputLabels["problems"]>
+    announce?: Partial<DictationInputLabels["announce"]>
+  }
+}
+
+export interface DictationInputProps
+  extends
+    Omit<
+      ComponentProps<"div">,
+      keyof DictationInputOwnProps | "onChange" | "defaultValue"
+    >,
+    DictationInputOwnProps {}
+
+export function DictationInput({
+  children,
+  value: valueProp,
+  onValueChange,
+  insert = "replace",
+  onTranscribe,
+  onResult,
+  onReset,
+  onDeleteRecording,
+  onActiveChange,
+  recordingPolicy = "ask",
+  sendRecording: sendRecordingProp,
+  onSendRecordingChange,
+  maxDurationMs,
+  getStream,
+  disabled = false,
+  preview,
+  fieldEffect = "glow",
+  buttonRadius = "auto",
+  glowVariant = "mono",
+  labels: labelOverrides,
+  className,
+  style,
+  onKeyDown,
+  ...props
+}: DictationInputProps) {
+  const labels: DictationInputLabels = {
+    ...dictationInputLabels,
+    ...labelOverrides,
+    problems: { ...dictationInputLabels.problems, ...labelOverrides?.problems },
+    announce: { ...dictationInputLabels.announce, ...labelOverrides?.announce },
+  }
+  const theme = useDocumentTheme()
+  const reduced = useReducedMotion()
+
+  const [textState, setTextState] = useState("")
+  const text = valueProp ?? textState
+  const [sendState, setSendState] = useState(true)
+  const sendRecording =
+    recordingPolicy === "always"
+      ? true
+      : recordingPolicy === "never"
+        ? false
+        : (sendRecordingProp ?? sendState)
+
+  const [processing, setProcessing] = useState(false)
+  /** The last take that failed server-side, kept so "Try again" can resend it. */
+  const [lastTake, setLastTake] = useState<VoiceTake | null>(null)
+  /** This field's recording, once a take has produced text. */
+  const [result, setResult] = useState<VoiceResult | null>(null)
+  /** The take behind `result`, played back from memory. */
+  const [localAudio, setLocalAudio] = useState<{
+    id: number
+    blob: Blob
+    durationMs: number
+  } | null>(null)
+  const [sendProblem, setSendProblem] = useState<DictationInputProblem | null>(null)
+  const [announcement, setAnnouncement] = useState("")
+  const [noteSpace, setNoteSpace] = useState(0)
+
+  /** The field's text before the current recording's transcript went in. */
+  const beforeRef = useRef("")
+  const abortRef = useRef<AbortController | null>(null)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const noteRef = useRef<HTMLDivElement | null>(null)
+  const cornerRef = useRef<HTMLSpanElement | null>(null)
+  const ringRef = useRef<HTMLSpanElement | null>(null)
+  /** Keep focus on the corner when the button there is swapped out. */
+  const cornerFocusRef = useRef(false)
+
+  function handleTake(take: VoiceTake) {
+    setLastTake(null)
+    void send(take)
+  }
+
+  const realRecorder = useVoiceRecorder({
+    maxDurationMs,
+    getStream,
+    onTake: handleTake,
+  })
+  // In preview the real recorder stays idle and never opens the mic; the
+  // field reads a simulated one instead.
+  const simulated = useSimulatedRecorder(preview, reduced, handleTake)
+  const recorder: VoiceRecorder = simulated
+    ? { ...realRecorder, ...simulated }
+    : realRecorder
+  const { status, getLevel } = recorder
+  const recording = status === "recording"
+  const paused = status === "paused"
+  const live = recording || paused
+  const busy = status === "requesting" || status === "stopping" || processing
+  const idle = !live && !busy
+  const problem: DictationInputProblem | null = recorder.problem ?? sendProblem
+  const recorded = result !== null
+
+  // Cancel an in-flight send when the component goes away.
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  // Other fields can block their mics while this one records.
+  const onActiveChangeRef = useRef(onActiveChange)
+  useEffect(() => {
+    onActiveChangeRef.current = onActiveChange
+  })
+  useEffect(() => {
+    onActiveChangeRef.current?.(live)
+  }, [live])
+
+  // The ring around the stop button breathes with the voice; written per
+  // frame, no renders.
+  useEffect(() => {
+    if (!live) return
+    let raf = 0
+    const tick = () => {
+      const level = paused ? 0 : getLevel()
+      const ring = ringRef.current
+      if (ring) {
+        if (reduced) {
+          ring.style.transform = "scale(1.18)"
+          ring.style.opacity = String(0.08 + level * 0.32)
+        } else {
+          ring.style.transform = `scale(${1 + level * 0.36})`
+          ring.style.opacity = String(0.12 + level * 0.22)
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    const ring = ringRef.current
+    return () => {
+      cancelAnimationFrame(raf)
+      if (ring) ring.style.opacity = "0"
+    }
+  }, [live, paused, reduced, getLevel])
+
+  // On a single-line field the effect shares the row with the text, so it
+  // fades out where the text (or the placeholder) ends. Measured with the
+  // field's own font, again as the text changes.
+  const showFieldVisual =
+    (live || processing) && fieldEffect !== "glow" && fieldEffect !== "none"
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    const input = wrapper?.querySelector<HTMLElement>("[data-slot=input]")
+    if (!showFieldVisual || !wrapper || !(input instanceof HTMLInputElement)) {
+      return
+    }
+    const context = document.createElement("canvas").getContext("2d")
+    const measure = () => {
+      const style = getComputedStyle(input)
+      let width = 0
+      if (context) {
+        context.font = style.font
+        width = context.measureText(input.value || input.placeholder).width
+      }
+      const start = parseFloat(style.paddingLeft) || 0
+      const end = Math.min(input.clientWidth, start + width)
+      wrapper.style.setProperty("--voice-text-end", `${Math.round(end)}px`)
+    }
+    measure()
+    input.addEventListener("input", measure)
+    return () => input.removeEventListener("input", measure)
+  }, [showFieldVisual, text])
+
+  // The button's corners follow the field's: visually concentric by default
+  // (`visualConcentricRadius`). Measured, not assumed — the field may be
+  // yours, with its own radius, and the inset differs between an input (4px)
+  // and a textarea (8px).
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    const corner = cornerRef.current
+    const field = wrapper?.querySelector<HTMLElement>(
+      "[data-slot=input], [data-slot=textarea]"
+    )
+    if (!wrapper || !corner) return
+    const measure = () => {
+      let fieldRadius = 0
+      let pill = false
+      let inset = 0
+      if (field) {
+        const fieldRect = field.getBoundingClientRect()
+        const cornerRect = corner.getBoundingClientRect()
+        inset = Math.max(
+          0,
+          Math.min(
+            cornerRect.top - fieldRect.top,
+            fieldRect.right - cornerRect.right
+          )
+        )
+        const raw = getComputedStyle(field).borderTopRightRadius
+        fieldRadius = parseFloat(raw)
+        if (!Number.isFinite(fieldRadius)) fieldRadius = 0
+        // `rounded-full` (or a percentage) is a pill: the button follows.
+        pill = raw.endsWith("%") || fieldRadius >= fieldRect.height / 2
+        if (pill) fieldRadius = fieldRect.height / 2
+      }
+      const size = corner.offsetWidth
+      const value =
+        buttonRadius === "full"
+          ? size / 2
+          : buttonRadius === "auto"
+            ? visualConcentricRadius({
+                outer: pill ? "full" : fieldRadius,
+                padding: inset,
+                size,
+              })
+            : Math.max(0, buttonRadius)
+      corner.style.setProperty("--voice-button-radius", `${value}px`)
+      wrapper.style.setProperty("--voice-field-radius", `${fieldRadius}px`)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    if (field) observer.observe(field)
+    return () => observer.disconnect()
+  }, [buttonRadius, children])
+
+  // Track the note's real height (copy length, language, width): it becomes
+  // the field's bottom padding so typed text always ends above it.
+  // Nothing to disclose when recordings are never sent.
+  const showNote =
+    recordingPolicy !== "never" && Boolean(onTranscribe) && recorded
+  useEffect(() => {
+    const element = noteRef.current
+    if (!showNote || !element) return
+    const observer = new ResizeObserver(() => {
+      setNoteSpace(Math.ceil(element.getBoundingClientRect().height))
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [showNote])
+
+  // Browsers without `field-sizing: content` keep a textarea at a fixed
+  // height and scroll it. Grow it with its text instead while the note is
+  // there, so lines never scroll underneath it.
+  useEffect(() => {
+    if (!showNote || typeof CSS === "undefined") return
+    if (CSS.supports("field-sizing", "content")) return
+    const textarea = wrapperRef.current?.querySelector("textarea")
+    if (!textarea) return
+    const fit = () => {
+      textarea.style.height = "auto"
+      textarea.style.height = `${textarea.scrollHeight + 2}px`
+    }
+    fit()
+    textarea.addEventListener("input", fit)
+    return () => {
+      textarea.removeEventListener("input", fit)
+      textarea.style.height = ""
+    }
+  }, [showNote, noteSpace])
+
+  // The corner swaps mic ↔ reset; keep keyboard focus there when it does.
+  const cornerKey = idle && result ? "reset" : "mic"
+  useEffect(() => {
+    const corner = cornerRef.current
+    if (!cornerFocusRef.current || !corner) return
+    if (corner.contains(document.activeElement)) return
+    if (document.activeElement && document.activeElement !== document.body) {
+      cornerFocusRef.current = false
+      return
+    }
+    corner.querySelector<HTMLElement>("button")?.focus()
+  }, [cornerKey])
+
+  function setText(next: string) {
+    if (valueProp === undefined) setTextState(next)
+    onValueChange?.(next)
+  }
+
+  function setSendRecording(next: boolean) {
+    if (sendRecordingProp === undefined) setSendState(next)
+    onSendRecordingChange?.(next)
+  }
+
+  async function deleteStored(value: VoiceResult | null) {
+    if (!value?.audioId || !onDeleteRecording) return true
+    try {
+      await onDeleteRecording(value)
+      return true
+    } catch {
+      setSendProblem("delete-failed")
+      return false
+    }
+  }
+
+  function isMultiline() {
+    return Boolean(wrapperRef.current?.querySelector("textarea"))
+  }
+
+  async function send(take: VoiceTake) {
+    if (!onTranscribe) {
+      // A mic that only records: keep the take for playback.
+      setLocalAudio({
+        id: nextTakeId(),
+        blob: take.blob,
+        durationMs: take.durationMs,
+      })
+      return
+    }
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setSendProblem(null)
+    setProcessing(true)
+    const keep = sendRecording
+    try {
+      const output = await onTranscribe(take, {
+        sendRecording: keep,
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
+      const transcript = output.transcript.trim()
+      if (!transcript) throw new VoiceTranscriptionError("empty")
+
+      // A new take replaces the last one: its stored audio goes.
+      const previous = result
+      if (previous) await deleteStored(previous)
+
+      const before = previous ? beforeRef.current : text
+      beforeRef.current = before
+      const value =
+        insert === "append" && before.trim()
+          ? `${before.replace(/\s+$/, "")}${isMultiline() ? "\n\n" : " "}${transcript}`
+          : transcript
+      const next: VoiceResult = {
+        transcript,
+        value,
+        durationMs: take.durationMs,
+        audio: keep ? take.blob : null,
+        mimeType: take.mimeType,
+        audioId: keep ? (output.audioId ?? null) : null,
+        sentRecording: keep,
+      }
+      setText(value)
+      setResult(next)
+      setLastTake(null)
+      setLocalAudio({
+        id: nextTakeId(),
+        blob: take.blob,
+        durationMs: take.durationMs,
+      })
+      setAnnouncement(labels.announce.done)
+      onResult?.(next)
+    } catch (error) {
+      if (controller.signal.aborted) return
+      const code =
+        error instanceof VoiceTranscriptionError ? error.code : "failed"
+      // An empty transcript from a take the analyser heard as flat silence is a
+      // microphone problem, not a mumbling one.
+      setSendProblem(code === "empty" && take.silent ? "silent" : code)
+      if (code === "failed") setLastTake(take)
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null
+        setProcessing(false)
+      }
+    }
+  }
+
+  async function onPress() {
+    if (busy) return
+    if (live) {
+      await recorder.stop()
+      return
+    }
+    if (disabled) return
+    setSendProblem(null)
+    setAnnouncement("")
+    setLastTake(null)
+    await recorder.start()
+  }
+
+  async function cancel() {
+    await recorder.cancel()
+    setAnnouncement(labels.announce.cancelled)
+  }
+
+  function cancelProcessing() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setProcessing(false)
+    setAnnouncement(labels.announce.cancelled)
+  }
+
+  async function reset() {
+    if (!(await deleteStored(result))) return
+    setText(insert === "append" ? beforeRef.current : "")
+    setResult(null)
+    setLocalAudio(null)
+    setLastTake(null)
+    setSendProblem(null)
+    cornerFocusRef.current = true
+    onReset?.()
+    setAnnouncement(labels.announce.reset)
+  }
+
+  async function toggleSendRecording() {
+    const next = !sendRecording
+    setSendRecording(next)
+    setAnnouncement(next ? labels.recordingsSent : labels.recordingsWithheld)
+    // Turning it off is immediate: a recording already sent stops existing.
+    if (!next && result?.sentRecording) {
+      if (!(await deleteStored(result))) return
+      const withheld: VoiceResult = {
+        ...result,
+        audio: null,
+        audioId: null,
+        sentRecording: false,
+      }
+      setResult(withheld)
+      onResult?.(withheld)
+    }
+  }
+
+  function retry() {
+    const take = lastTake
+    if (!take || !idle) return
+    void send(take)
+  }
+
+  async function chooseInput(deviceId: string) {
+    const { restarted, input } = await recorder.chooseInput(deviceId)
+    if (!input) return
+    setAnnouncement(
+      restarted
+        ? labels.announce.switched(input.label)
+        : labels.announce.nextMic(input.label)
+    )
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    onKeyDown?.(event)
+    if (event.defaultPrevented || event.key !== "Escape") return
+    if (live) {
+      event.preventDefault()
+      void cancel()
+    } else if (processing) {
+      event.preventDefault()
+      cancelProcessing()
+    }
+  }
+
+  const motion = useProcessingMotion(processing && !reduced)
+  const label = live
+    ? labels.stop
+    : processing
+      ? labels.processing
+      : busy
+        ? labels.preparing
+        : labels.record
+  const canRetry =
+    problem !== null && RETRYABLE.has(problem) && lastTake !== null
+  const showMicMenu =
+    recorder.inputs.length > 0 &&
+    (live || (problem !== null && MIC_PROBLEMS.has(problem)))
+  const micMenu = showMicMenu ? (
+    <MicMenu
+      inputs={recorder.inputs}
+      active={recorder.activeInput}
+      onChoose={(id) => void chooseInput(id)}
+      labels={labels}
+    />
+  ) : null
+  // With recordings never sent there is nothing kept to play back: the
+  // answer is the text alone.
+  const playback =
+    recordingPolicy !== "never" && idle && localAudio && result
+      ? localAudio
+      : null
+  const playerLabels = {
+    play: labels.play,
+    pause: labels.pausePlayback,
+    position: labels.position,
+  }
+
+  // The send-recordings note lives inside the field, pinned bottom-left, and
+  // only once this field has a recording. Its measured height becomes the
+  // field's bottom padding, so typed text always ends above it.
+  const noteSpaceStyle = showNote
+    ? ({ "--voice-note-space": `${noteSpace + NOTE_GAP}px` } as CSSProperties)
+    : undefined
+  const sendNote = showNote ? (
+    <div
+      ref={noteRef}
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-[4] px-3 pb-2.5"
+    >
+      <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
+        {sendRecording ? labels.recordingsSent : labels.recordingsWithheld}
+        {recordingPolicy === "ask" && (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={() => void toggleSendRecording()}
+              className="pointer-events-auto rounded-sm font-medium text-foreground underline decoration-foreground/25 underline-offset-2 transition-[text-decoration-color] outline-none hover:decoration-foreground/60 focus-visible:ring-3 focus-visible:ring-ring/40"
+            >
+              {sendRecording
+                ? labels.withholdRecordings
+                : labels.sendRecordings}
+            </button>
+          </>
+        )}
+      </p>
+    </div>
+  ) : null
+
+  /**
+   * The other effects take the same palette, so one colour choice reads on
+   * all of them. `mono` keeps the theme's neutral ink (`--voice-wave`).
+   */
+  const effectColors =
+    glowVariant === "mono" ? undefined : voicePalettes[glowVariant][theme]
+
+  /** Voice Glow's look, from the palette props. */
+  const glowProps = {
+    theme,
+    colorVariant: glowVariant,
+    // Voice Glow's band keeps its own tint (pink on light) whatever the
+    // palette; a neutral glow needs a neutral band too.
+    bandColors: glowVariant === "mono" ? NEUTRAL_BAND[theme] : undefined,
+  }
+
+  const state = live
+    ? status
+    : processing
+      ? "processing"
+      : busy
+        ? status
+        : result
+          ? "recorded"
+          : "idle"
+
+  return (
+    <div
+      ref={wrapperRef}
+      data-slot="dictation-input"
+      data-state={state}
+      onKeyDown={handleKeyDown}
+      style={{ ...noteSpaceStyle, ...style }}
+      className={cn(
+        "group/voice-field relative",
+        // Room for the button so typed text and the placeholder never run
+        // underneath it: inset + 28px button + 8px breathing room.
+        "[&_[data-slot=input]]:pr-10 [&_[data-slot=textarea]]:pr-11",
+        // A recorded field reserves a footer strip for the note. A single-line
+        // input grows downward: its text keeps the 36px row the mic is
+        // centred on, and the note gets the space under it.
+        showNote &&
+          "[&_[data-slot=input]]:h-auto [&_[data-slot=input]]:pt-1.5 [&_[data-slot=input]]:pb-(--voice-note-space) md:[&_[data-slot=input]]:pt-2 [&_[data-slot=textarea]]:pb-(--voice-note-space)",
+        className
+      )}
+      {...props}
+    >
+      <VoiceBeam
+        stream={recording ? recorder.stream : null}
+        level={simulated ? getLevel : undefined}
+        motion={motion}
+        type="default"
+        {...glowProps}
+        active={fieldEffect === "glow" && (live || processing)}
+        paused={paused}
+        className="w-full"
+        css={`
+          [data-voice-beam="{id}"]:not([data-active]):not([data-fading]) {
+            overflow: visible;
+          }
+        `}
+      >
+        {children}
+        {sendNote}
+        {showFieldVisual && (
+          <FieldVisual
+            visual={fieldEffect}
+            analyser={recorder.analyser}
+            getLevel={getLevel}
+            paused={paused}
+            processing={processing}
+            colors={effectColors}
+          />
+        )}
+      </VoiceBeam>
+
+      <span
+        ref={cornerRef}
+        onFocusCapture={() => {
+          cornerFocusRef.current = true
+        }}
+        onBlurCapture={(event) => {
+          // Focus that leaves on purpose stays gone; focus lost to a button
+          // the corner swapped out is put back.
+          if (event.relatedTarget) cornerFocusRef.current = false
+        }}
+        className={cn(
+          "absolute top-1 right-1 z-20 size-7 group-has-[[data-slot=textarea]]/voice-field:top-2 group-has-[[data-slot=textarea]]/voice-field:right-2",
+          // Until it is measured: the same visual rule against a shadcn
+          // rounded-lg field — max(R - inset, R / 2, min(2px, R)), at most
+          // half the 28px button.
+          "[--voice-button-radius:min(max(calc(var(--radius,0.5rem)-4px),calc(var(--radius,0.5rem)*0.5),min(2px,var(--radius,0.5rem))),14px)] group-has-[[data-slot=textarea]]/voice-field:[--voice-button-radius:min(max(calc(var(--radius,0.5rem)-8px),calc(var(--radius,0.5rem)*0.5),min(2px,var(--radius,0.5rem))),14px)]"
+        )}
+      >
+        <span
+          ref={ringRef}
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-[var(--voice-button-radius)] bg-[var(--voice-accent,var(--color-foreground))] opacity-0 transition-opacity duration-200",
+            !recording && "invisible"
+          )}
+        />
+        {cornerKey === "reset" ? (
+          <ResetControl
+            length={formatElapsed(result?.durationMs ?? 0)}
+            labels={labels}
+            onConfirm={() => void reset()}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => void onPress()}
+            // Busy stays focusable (aria-disabled) so keyboard focus isn't
+            // dropped to the page while the answer is written.
+            disabled={disabled && !live}
+            aria-disabled={busy || undefined}
+            aria-label={label}
+            aria-busy={busy || undefined}
+            title={live ? undefined : label}
+            data-state={live ? status : busy ? "busy" : "idle"}
+            className={cn(
+              CORNER_BUTTON,
+              live
+                ? "bg-[var(--voice-accent,var(--color-foreground))] text-[var(--voice-accent-foreground,var(--color-background))] shadow-[0_1px_2px_rgba(0,0,0,0.12)] hover:opacity-90"
+                : REST_BUTTON,
+              disabled && !live && "opacity-50"
+            )}
+          >
+            {busy ? (
+              <CircleNotchIcon
+                className="size-3.5 animate-spin text-muted-foreground"
+                aria-hidden="true"
+              />
+            ) : live ? (
+              <StopIcon className="size-3" weight="fill" aria-hidden="true" />
+            ) : (
+              <MicrophoneIcon
+                className="size-3.5"
+                weight="fill"
+                aria-hidden="true"
+              />
+            )}
+          </button>
+        )}
+      </span>
+
+      {live && (
+        <div className="mt-2 flex min-h-6 items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span
+            className={cn(
+              "shrink-0",
+              recorder.quiet && !paused && "font-semibold text-foreground"
+            )}
+          >
+            {recorder.quiet ? labels.quiet : labels.listening}
+          </span>
+          <span className="shrink-0 text-muted-foreground/70 tabular-nums">
+            {formatElapsed(recorder.elapsedMs)}
+          </span>
+          <span className="ml-auto flex min-w-0 items-center">{micMenu}</span>
+        </div>
+      )}
+
+      {busy && !live && (
+        <p className="mt-2 flex min-h-6 items-center text-xs font-medium text-muted-foreground">
+          {processing ? labels.processing : labels.preparing}
+        </p>
+      )}
+
+      {playback && (
+        <div className="mt-2.5">
+          <VoicePlayer
+            key={playback.id}
+            source={playback.blob}
+            durationMs={playback.durationMs}
+            labels={playerLabels}
+          />
+        </div>
+      )}
+
+      {idle && problem && (
+        <div className="mt-2 flex min-h-6 flex-wrap items-center gap-x-3 gap-y-1">
+          <p
+            className="min-w-0 flex-1 basis-56 text-xs font-medium text-destructive"
+            role="alert"
+          >
+            {labels.problems[problem]}
+          </p>
+          {(canRetry || micMenu) && (
+            <span className="flex min-w-0 items-center gap-1">
+              {canRetry && (
+                <button type="button" onClick={retry} className={TEXT_BUTTON}>
+                  {labels.retry}
+                </button>
+              )}
+              {micMenu}
+            </span>
+          )}
+        </div>
+      )}
+
+      <span className="sr-only" aria-live="polite">
+        {simulated
+          ? null
+          : recording
+            ? labels.announce.recording(
+                recorder.activeInput?.label ?? labels.microphone
+              )
+            : processing
+              ? labels.processing
+              : announcement}
+      </span>
+    </div>
+  )
+}
+
+// ── Pieces ──
+
+type VisualProps = {
+  analyser: AnalyserNode | null
+  getLevel: () => number
+  paused: boolean
+}
+
+/**
+ * The voice drawn inside the field when it isn't the glow: a band along the
+ * bottom of the field, faint enough that typed text reads over it. It stays
+ * through processing, where each style plays its own "working" motion.
+ *
+ * On a single-line field it fades out behind the text (`--voice-text-end`,
+ * measured) and before the mic, so the placeholder, what's typed and the
+ * button never sit on top of it.
+ */
+function FieldVisual({
+  visual,
+  analyser,
+  getLevel,
+  paused,
+  processing,
+  colors,
+}: VisualProps & {
+  visual: "level" | "dots"
+  processing: boolean
+  colors?: readonly string[]
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      data-slot="dictation-input-field-visual"
+      data-processing={processing || undefined}
+      className={cn(
+        "pointer-events-none absolute inset-x-0 bottom-0 z-[3] h-full max-h-12 overflow-hidden rounded-b-[var(--voice-field-radius,0.5rem)] transition-opacity duration-200",
+        "animate-in fade-in-0",
+        // Single line: clear of the text on the left, and of the mic on the right.
+        "group-has-[[data-slot=input]]/voice-field:[mask-image:linear-gradient(to_right,transparent_calc(var(--voice-text-end,0px)+4px),black_calc(var(--voice-text-end,0px)+40px),black_calc(100%-56px),transparent_calc(100%-40px))]",
+        paused ? "opacity-40" : "opacity-100"
+      )}
+    >
+      <LiveWaveform
+        analyser={analyser}
+        getLevel={getLevel}
+        frozen={paused}
+        processing={processing}
+        waveform={visual}
+        colors={colors}
+        className={cn(
+          "absolute inset-x-3 inset-y-1.5 h-auto text-[var(--voice-wave,var(--color-foreground))]",
+          // A palette reads lighter than ink, so it gets a little more.
+          visual === "level"
+            ? colors
+              ? "opacity-40"
+              : "opacity-25"
+            : colors
+              ? "opacity-30"
+              : "opacity-[0.16]"
+        )}
+      />
+    </div>
+  )
+}
+
+const CORNER_BUTTON = cn(
+  "relative inline-flex size-7 items-center justify-center rounded-[var(--voice-button-radius,9999px)] outline-none",
+  // Hit area: 36px with a pointer, 44px on touch.
+  "before:absolute before:-inset-1 before:rounded-[inherit] before:content-[''] pointer-coarse:before:-inset-2",
+  "transition-[background-color,color,box-shadow,scale,opacity] duration-150 ease-out active:scale-[0.94]",
+  "focus-visible:ring-3 focus-visible:ring-ring/40",
+  "disabled:cursor-default disabled:active:scale-100 aria-disabled:cursor-default aria-disabled:active:scale-100"
+)
+
+/** The resting corner button: white, a hairline and a soft drop. */
+const REST_BUTTON =
+  "bg-card text-muted-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.06)] hover:text-foreground hover:shadow-[0_0_0_1px_rgba(0,0,0,0.12),0_1px_3px_rgba(0,0,0,0.08)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.1)] dark:hover:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
+
+const TEXT_BUTTON =
+  "rounded-md px-1.5 py-1 text-xs font-semibold text-foreground transition-colors outline-none hover:bg-foreground/5 focus-visible:ring-3 focus-visible:ring-ring/30"
+
+/**
+ * Replaces the mic once there's a recording. Deleting a recording someone
+ * may have spent minutes on takes two deliberate steps: the button opens a
+ * confirmation that names exactly what goes, with Cancel focused.
+ */
+function ResetControl({
+  length,
+  labels,
+  onConfirm,
+}: {
+  length: string
+  labels: DictationInputLabels
+  onConfirm: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const cancelRef = useRef<HTMLButtonElement | null>(null)
+  const id = useId()
+  const className = cn(
+    CORNER_BUTTON,
+    REST_BUTTON,
+    "hover:text-destructive data-popup-open:text-destructive"
+  )
+  const icon = (
+    <ArrowCounterClockwiseIcon
+      className="size-3.5"
+      weight="bold"
+      aria-hidden="true"
+    />
+  )
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        aria-label={labels.reset}
+        title={open ? undefined : labels.reset}
+        className={className}
+      >
+        {icon}
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        initialFocus={cancelRef}
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-body`}
+        className="w-[min(18rem,calc(100vw-24px))] gap-0 rounded-xl p-3.5"
+      >
+        <PopoverTitle id={`${id}-title`} className="text-sm font-semibold">
+          {labels.resetTitle}
+        </PopoverTitle>
+        <PopoverDescription
+          id={`${id}-body`}
+          className="mt-1 text-xs leading-relaxed"
+        >
+          {labels.resetBody(length)}
+        </PopoverDescription>
+        <div className="mt-3 flex justify-end gap-1.5">
+          <Button
+            ref={cancelRef}
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setOpen(false)}
+          >
+            {labels.resetCancel}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            size="xs"
+            onClick={() => {
+              setOpen(false)
+              onConfirm()
+            }}
+          >
+            {labels.resetConfirm}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function MicMenu({
+  inputs,
+  active,
+  onChoose,
+  labels,
+}: {
+  inputs: AudioInput[]
+  active: AudioInput | null
+  onChoose: (deviceId: string) => void
+  labels: DictationInputLabels
+}) {
+  const current = active?.label ?? inputs[0]?.label ?? labels.microphone
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        aria-label={`${labels.chooseMic}: ${current}`}
+        className="-mr-1.5 flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground transition-colors outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 data-popup-open:bg-foreground/5 data-popup-open:text-foreground"
+      >
+        <MicrophoneIcon
+          className="size-3 shrink-0"
+          weight="fill"
+          aria-hidden="true"
+        />
+        <span className="max-w-48 truncate sm:max-w-64">{current}</span>
+        <CaretDownIcon
+          className="size-3 shrink-0"
+          weight="bold"
+          aria-hidden="true"
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto max-w-80 min-w-56">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            {labels.microphone}
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={active?.deviceId ?? ""}
+            onValueChange={(value) => onChoose(String(value))}
+          >
+            {inputs.map((input) => (
+              <DropdownMenuRadioItem
+                key={input.deviceId}
+                value={input.deviceId}
+              >
+                <span className="truncate">{input.label}</span>
+                {input.isDefault && (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {labels.systemDefault}
+                  </span>
+                )}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+// ── Hooks ──
+
+/**
+ * The thinking glow: the lobes gather into one beam that sweeps the edge
+ * while the take is transcribed, and spread back out when it lands.
+ */
+function useProcessingMotion(active: boolean) {
+  const state = useRef({ gather: 0, offset: 0, dir: 1, last: 0 })
+
+  return useCallback((): VoiceBeamMotion | null => {
+    const now = performance.now()
+    const motion = state.current
+    const dt = motion.last ? Math.min(0.05, (now - motion.last) / 1000) : 0.016
+    motion.last = now
+    const target = active ? 1 : 0
+    motion.gather += (target - motion.gather) * Math.min(1, dt * 2.4)
+    if (motion.gather > 0.08) {
+      motion.offset += motion.dir * dt * 0.62
+      if (motion.offset > 0.78) {
+        motion.offset = 0.78
+        motion.dir = -1
+      } else if (motion.offset < -0.78) {
+        motion.offset = -0.78
+        motion.dir = 1
+      }
+    } else {
+      motion.offset *= 1 - Math.min(1, dt * 3)
+    }
+    if (motion.gather < 0.02 && !active) return null
+    return {
+      gather: motion.gather,
+      offset: motion.offset,
+      stretch: 0.18,
+      heldLevel: 0.58,
+      cornerFollow: 0.4,
+    }
+  }, [active])
+}
+
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const update = () => setReduced(query.matches)
+    const initial = window.setTimeout(update, 0)
+    query.addEventListener("change", update)
+    return () => {
+      window.clearTimeout(initial)
+      query.removeEventListener("change", update)
+    }
+  }, [])
+  return reduced
+}
+
+/** Light or dark, from the `.dark` class shadcn themes put on <html>. */
+function useDocumentTheme() {
+  const [theme, setTheme] = useState<"light" | "dark">("light")
+  useEffect(() => {
+    const root = document.documentElement
+    const update = () =>
+      setTheme(root.classList.contains("dark") ? "dark" : "light")
+    const initial = window.setTimeout(update, 0)
+    const observer = new MutationObserver(update)
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] })
+    return () => {
+      window.clearTimeout(initial)
+      observer.disconnect()
+    }
+  }, [])
+  return theme
+}
+
+/**
+ * A voice level: syllables riding a phrase envelope, with a breath between
+ * phrases. `t` in seconds.
+ */
+function simulatedLevel(t: number) {
+  const phrase = Math.max(0, Math.sin(t * 0.9) + 0.55) / 1.55
+  const syllables =
+    Math.abs(Math.sin(t * 6.8)) * (0.7 + 0.3 * Math.sin(t * 2.3))
+  return Math.min(1, 0.06 + phrase * (0.25 + 0.6 * syllables))
+}
+
+/**
+ * A take for `preview="interactive"`: a soft hum shaped by the same
+ * envelope as the simulated level, as a 16 kHz mono WAV, so the recap player
+ * has something real to draw and play.
+ */
+function simulatedTakeBlob(durationMs: number) {
+  const rate = 16000
+  const count = Math.max(1, Math.round((rate * durationMs) / 1000))
+  const buffer = new ArrayBuffer(44 + count * 2)
+  const view = new DataView(buffer)
+  const text = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i++) {
+      view.setUint8(offset + i, value.charCodeAt(i))
+    }
+  }
+  text(0, "RIFF")
+  view.setUint32(4, 36 + count * 2, true)
+  text(8, "WAVE")
+  text(12, "fmt ")
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, rate, true)
+  view.setUint32(28, rate * 2, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  text(36, "data")
+  view.setUint32(40, count * 2, true)
+  for (let i = 0; i < count; i++) {
+    const t = i / rate
+    const pitch = 140 + 18 * Math.sin(t * 2.1)
+    const voice =
+      Math.sin(2 * Math.PI * pitch * t) * 0.6 +
+      Math.sin(4 * Math.PI * pitch * t) * 0.25 +
+      Math.sin(6 * Math.PI * pitch * t) * 0.15
+    const sample = voice * simulatedLevel(t) * 0.35
+    view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample)) * 0x7fff, true)
+  }
+  return new Blob([buffer], { type: "audio/wav" })
+}
+
+/**
+ * The recorder `preview` swaps in: the same shape as `useVoiceRecorder`'s,
+ * driven by a simulated voice. `"recording"` is mid-take from the start and
+ * never stops; `"interactive"` starts and stops like the real one and hands
+ * a generated take to `onTake`; `"recorded"` does the same, plus one take on
+ * mount. Reduced motion holds a steady level.
+ */
+function useSimulatedRecorder(
+  mode: "recording" | "interactive" | "recorded" | undefined,
+  reduced: boolean,
+  onTake: (take: VoiceTake) => void
+) {
+  const hold = mode === "recording"
+  const [status, setStatusState] = useState<VoiceRecorderStatus>(
+    hold ? "recording" : "idle"
+  )
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const statusRef = useRef(status)
+  /** Recorded time banked by pauses, and when the current run began. */
+  const bankedRef = useRef(0)
+  const runStartRef = useRef(0)
+  const onTakeRef = useRef(onTake)
+  useEffect(() => {
+    onTakeRef.current = onTake
+  })
+
+  function setStatus(next: VoiceRecorderStatus) {
+    statusRef.current = next
+    setStatusState(next)
+  }
+
+  function recordedMs() {
+    return (
+      bankedRef.current +
+      (runStartRef.current ? performance.now() - runStartRef.current : 0)
+    )
+  }
+
+  // "recording" starts its clock on mount.
+  useEffect(() => {
+    if (hold) runStartRef.current = performance.now()
+  }, [hold])
+
+  // "recorded" hands over a take on mount, as if one had just finished.
+  const recorded = mode === "recorded"
+  useEffect(() => {
+    if (!recorded) return
+    const durationMs = 9000
+    onTakeRef.current({
+      blob: simulatedTakeBlob(durationMs),
+      mimeType: "audio/wav",
+      durationMs,
+      silent: false,
+    })
+  }, [recorded])
+
+  useEffect(() => {
+    if (status !== "recording") return
+    const id = window.setInterval(() => setElapsedMs(recordedMs()), 250)
+    return () => window.clearInterval(id)
+  }, [status])
+
+  const getLevel = useCallback(() => {
+    if (statusRef.current !== "recording") return 0
+    return reduced ? 0.35 : simulatedLevel(performance.now() / 1000)
+  }, [reduced])
+
+  if (!mode) return null
+
+  return {
+    status,
+    problem: null,
+    stream: null,
+    analyser: null,
+    getLevel,
+    elapsedMs,
+    quiet: false,
+    inputs: [],
+    activeInput: null,
+    start: async () => {
+      if (hold || statusRef.current !== "idle") return false
+      bankedRef.current = 0
+      runStartRef.current = performance.now()
+      setElapsedMs(0)
+      setStatus("recording")
+      return true
+    },
+    stop: async () => {
+      const current = statusRef.current
+      if (hold || (current !== "recording" && current !== "paused")) {
+        return null
+      }
+      const durationMs = recordedMs()
+      bankedRef.current = 0
+      runStartRef.current = 0
+      setStatus("idle")
+      const take: VoiceTake = {
+        blob: simulatedTakeBlob(durationMs),
+        mimeType: "audio/wav",
+        durationMs,
+        silent: false,
+      }
+      onTakeRef.current(take)
+      return take
+    },
+    pause: () => {
+      if (hold || statusRef.current !== "recording") return
+      bankedRef.current = recordedMs()
+      runStartRef.current = 0
+      setElapsedMs(bankedRef.current)
+      setStatus("paused")
+    },
+    resume: () => {
+      if (hold || statusRef.current !== "paused") return
+      runStartRef.current = performance.now()
+      setStatus("recording")
+    },
+    cancel: async () => {
+      if (hold) return
+      bankedRef.current = 0
+      runStartRef.current = 0
+      setStatus("idle")
+    },
+  } satisfies Partial<VoiceRecorder>
+}
