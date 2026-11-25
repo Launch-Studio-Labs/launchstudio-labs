@@ -30,3 +30,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Demo photo
+
+`public/images/fjord.jpg`, used by the Image Cropper demo, is a photo by
+Alexey Topolyanskiy (https://unsplash.com/photos/-oWyJoSqBRM), used under the
+Unsplash License (https://unsplash.com/license). It is not part of any
+registry item.

@@ -8,6 +8,7 @@
 export const docsPages = {
   "/": { title: "Empty state", section: "Library" },
   "/dictation-input": { title: "Dictation Input", section: "Library" },
+  "/image-cropper": { title: "Image Cropper", section: "Library" },
   "/typography": { title: "Width & line height", section: "Practices" },
   "/concentric-radii": {
     title: "Visually concentric radii",

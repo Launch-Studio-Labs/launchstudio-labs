@@ -85,3 +85,34 @@ recordings" end to end) and `scan.md`.
 
 The glow is [Voice Glow](https://libraries.dev/voice) by Jakub Antalik, MIT
 License, Copyright (c) 2026 Jakub Antalik — see `THIRD_PARTY_NOTICES.md`.
+
+## Image Cropper
+
+Crop, straighten, turn and flip a photo, and never see an empty corner.
+While the photo turns, it scales up just enough to cover the crop frame
+(the smallest scale at which the frame, turned into the photo's axes, fits
+inside it), and its position is clamped so the frame stays on the photo.
+Turn it back and it returns to your zoom. Drag handles, aspect presets
+(free, 1:1, 4:5, 16:9), a straighten dial (plus or minus 45 degrees), quarter
+turns, flip, reset; pinch, two-finger rotate, Ctrl and scroll, and keys.
+Export with `ref.current.toBlob()`. Docs and playground:
+https://labs.launchstudio.space/image-cropper (`/playground/image-cropper`).
+
+```tsx
+<ImageCropper ref={cropper} src={photo} onValueChange={setCrop} />
+```
+
+**AI fill** (optional): pass `generateFill` and an "AI fill" switch appears.
+With it on, you can zoom out or turn past the photo's edges; when you let go
+the empty parts shimmer, an image model on your server fills them, and they
+resolve in under the photo. The demo wires it to `app/api/image-fill`
+(OpenAI image edits, `OPENAI_API_KEY` on the server, `OPENAI_IMAGE_MODEL`
+defaults to `gpt-image-2`, `OPENAI_IMAGE_QUALITY` to `low`). That route is
+named `route.server.ts` so only the server build includes it; the static
+preview export has no server and says so in the demo.
+
+Install with the prompt on the docs page, or
+`npx shadcn@latest add https://labs.launchstudio.space/r/image-cropper.json`.
+The skill is `skills/image-cropper/` (`server.md` has the fill route).
+
+The demo photo is by Alexey Topolyanskiy on Unsplash (Unsplash License).

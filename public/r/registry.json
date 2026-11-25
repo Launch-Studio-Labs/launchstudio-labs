@@ -59,6 +59,26 @@
       "docs": "Dictation Input wraps a text field: wrap your own Input or Textarea in <DictationInput>. Wire onTranscribe to your server and honour sendRecording=false (transcribe, never store). Glow: Voice Glow by Jakub Antalik (https://libraries.dev/voice), MIT License, Copyright (c) 2026 Jakub Antalik. Guide: https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main/skills/dictation-input/SKILL.md"
     },
     {
+      "name": "image-cropper",
+      "type": "registry:ui",
+      "title": "Image Cropper",
+      "description": "Crop, straighten, turn and flip a photo without ever showing an empty corner: the photo scales and clamps itself to always cover the crop frame. Drag handles, aspect presets, a straighten dial, pinch, two-finger rotate, trackpad pinch and keyboard. Optional AI fill: go past the edges and a pluggable generateFill (an image model behind your server) fills the empty parts. Exports to Blob or canvas at full resolution.",
+      "registryDependencies": [
+        "button"
+      ],
+      "dependencies": [
+        "@phosphor-icons/react"
+      ],
+      "files": [
+        {
+          "path": "components/ui/image-cropper.tsx",
+          "type": "registry:ui",
+          "target": "components/ui/image-cropper.tsx"
+        }
+      ],
+      "docs": "Give <ImageCropper> a src and a ref; call ref.current.toBlob() to export. For AI fill, pass generateFill and post the image and mask to a server route that calls your image model (key on the server only). Guide: https://github.com/Launch-Studio-Labs/launchstudio-labs/blob/main/skills/image-cropper/SKILL.md"
+    },
+    {
       "name": "visual-concentric-radius",
       "type": "registry:lib",
       "title": "Visual Concentric Radius",
