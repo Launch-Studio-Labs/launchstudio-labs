@@ -7,6 +7,12 @@ import type { NextConfig } from "next"
 const staticExport = process.env.NEXT_STATIC_EXPORT === "1"
 
 const nextConfig: NextConfig = {
+  // `route.server.ts` files are server-only routes (the Image Cropper's AI
+  // fill). The server build picks them up; the static export, which has no
+  // server to run them, leaves them out.
+  pageExtensions: staticExport
+    ? ["tsx", "ts", "jsx", "js"]
+    : ["tsx", "ts", "jsx", "js", "server.ts"],
   // The dev preview reaches this server over Tailscale, not localhost.
   allowedDevOrigins: ["*.tail3d6805.ts.net"],
   ...(staticExport
