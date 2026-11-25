@@ -22,7 +22,11 @@ const eslintConfig = defineConfig([
   // later block for the same rule replace an earlier one.)
   {
     files: ["{app,components,lib,hooks}/**/*.{ts,tsx}"],
-    ignores: ["components/page-header.tsx", "components/code-block.tsx"],
+    ignores: [
+      "components/page-header.tsx",
+      "components/code-block.tsx",
+      "components/ui/code-block.tsx",
+    ],
     rules: {
       "no-restricted-syntax": [
         "error",

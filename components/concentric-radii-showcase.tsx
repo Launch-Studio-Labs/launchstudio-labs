@@ -76,7 +76,7 @@ export function ConcentricRadiiShowcase() {
 
       <div className="labs-enter labs-enter-delay-2 flex flex-col gap-6">
         <Prose paragraphs={INTRO} />
-        <CodeBlock code={NAIVE_FORMULA} />
+        <CodeBlock code={NAIVE_FORMULA} language="ts" />
         <Prose paragraphs={BREAK} />
       </div>
 
@@ -86,7 +86,7 @@ export function ConcentricRadiiShowcase() {
 
       <div className="labs-enter labs-enter-delay-3 flex flex-col gap-6">
         <Prose paragraphs={RULE_LEAD} />
-        <CodeBlock code={RULE_FORMULA} />
+        <CodeBlock code={RULE_FORMULA} language="ts" />
         <Prose paragraphs={RULE} />
       </div>
 
@@ -103,7 +103,10 @@ export function ConcentricRadiiShowcase() {
           </TabsList>
           {Object.entries(SNIPPETS).map(([value, code]) => (
             <TabsContent key={value} value={value}>
-              <CodeBlock code={code} />
+              <CodeBlock
+                code={code}
+                language={value === "ts" ? "ts" : "css"}
+              />
             </TabsContent>
           ))}
         </Tabs>

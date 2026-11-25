@@ -4,8 +4,13 @@ import { useEffect, useRef, useState, type ComponentProps } from "react"
 
 import { CopyStateIcon } from "@/components/docs/copy-state-icon"
 import { Button } from "@/components/ui/button"
+import {
+  CodeBlockContent,
+  CodeBlockLine,
+  CodeBlock as CodeBlockRoot,
+} from "@/components/ui/code-block"
+import { useHighlightedCode } from "@/hooks/use-highlighted-code"
 import { copyText } from "@/lib/copy-text"
-import { cn } from "@/lib/utils"
 
 /** Copied → check for a moment, then back. */
 function useCopy(text: string) {
@@ -23,46 +28,49 @@ function useCopy(text: string) {
 }
 
 /**
- * Code to read or copy — the only place a `<pre>` is allowed (lint enforces
- * it). The padding sits on the box and the scroll on the code inside it, so
- * the scrollbar runs under the code within the box's edges, on a transparent
- * track. The copy button sits in the corner, over the box's own padding.
+ * Code to read or copy, on shadcn's Code Block (components/ui/code-block.tsx,
+ * the only place a `<pre>` is allowed; lint enforces it). Shiki highlights it
+ * in `language`; until the grammar loads, and for a language the highlighter
+ * doesn't list, it shows as plain text. The copy button is the same one the
+ * install command has: always shown, in the corner, over the code's padding.
  */
 export function CodeBlock({
   code,
+  language = "tsx",
   copyable = true,
-  className,
   ...props
 }: {
   code: string
+  /** A language or alias from lib/highlighter.tsx, e.g. "tsx" or "css". */
+  language?: string
   copyable?: boolean
-} & Omit<ComponentProps<"div">, "children">) {
+} & Omit<ComponentProps<typeof CodeBlockRoot>, "children">) {
+  const lines = useHighlightedCode(code, language)
   const [copied, copy] = useCopy(code)
 
   return (
-    <div
-      className={cn(
-        "relative rounded-lg bg-muted py-4 pl-4",
-        copyable ? "pr-12" : "pr-4",
-        className
-      )}
-      {...props}
-    >
-      <pre className="[scrollbar-width:thin] [scrollbar-color:color-mix(in_oklab,var(--color-foreground)_20%,transparent)_transparent] overflow-x-auto pb-2 font-mono text-xs leading-normal">
-        <code>{code}</code>
-      </pre>
+    <CodeBlockRoot size="sm" {...props}>
       {copyable && (
         <Button
-          aria-label={copied ? "Copied" : "Copy code"}
           variant="ghost"
           size="icon-sm"
+          aria-label={copied ? "Copied" : "Copy code"}
           onClick={() => void copy()}
-          className="absolute top-2 right-2 text-muted-foreground hover:bg-background"
+          className="absolute top-1.5 right-1.5 z-10"
         >
           <CopyStateIcon copied={copied} />
         </Button>
       )}
-    </div>
+      <CodeBlockContent
+        className={
+          copyable ? "group-data-[size=sm]/code-block:pe-12" : undefined
+        }
+      >
+        {lines.map((line, index) => (
+          <CodeBlockLine key={index}>{line}</CodeBlockLine>
+        ))}
+      </CodeBlockContent>
+    </CodeBlockRoot>
   )
 }
 

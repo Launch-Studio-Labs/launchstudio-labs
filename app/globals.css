@@ -268,6 +268,12 @@
   .labs-enter-delay-4 {
     animation-delay: 300ms;
   }
+  /* Outside production (see app/layout.tsx) the entrance is skipped and the
+     content shows at once, fully visible. */
+  [data-enter-animations="off"] .labs-enter {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 /* Typeset preset for the skill shown in a dialog: the docs' 14px body,

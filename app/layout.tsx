@@ -38,6 +38,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
+      // Page entrance animations only play in production builds. In dev the
+      // page renders in its final state, so design-tool snapshots never
+      // catch it mid-fade.
+      data-enter-animations={
+        process.env.NODE_ENV === "production" ? "on" : "off"
+      }
       className={cn(
         "font-sans antialiased",
         fontSans.variable,

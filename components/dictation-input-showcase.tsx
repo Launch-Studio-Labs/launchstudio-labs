@@ -247,7 +247,7 @@ export function DictationInputShowcase({ skill }: { skill: string }) {
                 },
                 {
                   title: "Tune the colours, if you like",
-                  body: <CodeBlock code={TOKENS} />,
+                  body: <CodeBlock code={TOKENS} language="css" />,
                 },
               ]}
             />
