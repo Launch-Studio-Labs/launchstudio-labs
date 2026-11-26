@@ -663,6 +663,33 @@ const beats: Beat[] = [
   },
 ]
 
+/**
+ * Steps that do something get a cue of their own; every other step (a new
+ * line of text, mostly) plays the step sound picked in the editor.
+ */
+const CUES: Record<string, NonNullable<Step<Scene>["cue"]>> = {
+  "field-in": "open",
+  land: "ready",
+  corner: "navigate",
+  clock: "navigate",
+  "stop-button": "navigate",
+  undo: "navigate",
+  "way-out": "navigate",
+  playback: "navigate",
+  "how-hard": "close",
+  "clean-1": "close",
+  "zoom-out": "close",
+  ask: "close",
+  "clean-2": "close",
+  textbook: "select",
+  square: "select",
+  "keeps-it": "open",
+  always: "toggle",
+  never: "toggle",
+  "no-field": "select",
+  "another-time": "close",
+}
+
 function resolve(list: Beat[]): Step<Scene>[] {
   let fields: Record<string, FieldScene> = {}
   let camera: Camera = {}
@@ -686,7 +713,7 @@ function resolve(list: Beat[]): Step<Scene>[] {
       labels: (beat.labels ?? []).map((label) =>
         typeof label === "string" ? { id: label } : label
       ),
-      cue: beat.cue,
+      cue: beat.cue ?? CUES[beat.id],
       duration: beat.duration,
     }
   })
@@ -696,6 +723,7 @@ export const dictationInputDeck: Deck<Scene> = {
   id: "dictation-input",
   title: "Dictation Input · the life of a text field",
   baseScale: 2,
+  stepSound: "type",
   labels,
   steps: resolve(beats),
   World: DictationWorld,

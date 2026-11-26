@@ -9,9 +9,10 @@ import {
 
 /**
  * Step cues, by Cuelume, set up the way the blueprint videos are: the "mech"
- * theme, quiet, and sparse — a step only sounds when the deck gives it a cue,
- * never on every key. Off by default; the editor's toggle turns it on, and
- * the choice is remembered on this machine.
+ * theme, quiet and subtle. Every step forward plays one cue: the step's own
+ * when it does something, or the step sound picked in the editor. Back and
+ * jumps are silent. On by default (audio starts on the first key, a user
+ * gesture); the editor's speaker mutes it, remembered on this machine.
  */
 const STORAGE_KEY = "step-video-sound"
 const VOLUME = 0.3
@@ -27,9 +28,9 @@ function setup() {
 
 export function soundStored(): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === "on"
+    return window.localStorage.getItem(STORAGE_KEY) !== "off"
   } catch {
-    return false
+    return true
   }
 }
 
@@ -43,6 +44,24 @@ export async function setSound(on: boolean) {
   setEnabled(on)
   if (on) await unlock()
 }
+
+/** Cuelume's cues, for the step sound picker, in the order they read best. */
+export const STEP_SOUNDS: { name: SoundName; hint: string }[] = [
+  { name: "tap", hint: "a small glassy tap" },
+  { name: "type", hint: "one keystroke" },
+  { name: "select", hint: "a soft pick" },
+  { name: "navigate", hint: "a short move" },
+  { name: "toggle", hint: "a switch" },
+  { name: "open", hint: "something opening" },
+  { name: "close", hint: "something closing" },
+  { name: "ready", hint: "a warm note" },
+  { name: "success", hint: "it worked" },
+  { name: "count", hint: "a number rolling" },
+  { name: "loading", hint: "a waiting pulse" },
+  { name: "attention", hint: "a high bell" },
+  { name: "warning", hint: "careful" },
+  { name: "error", hint: "it didn't work" },
+]
 
 /** Plays a step's cue, quietly. Only call it when sound is on. */
 export function stepCue(name: SoundName) {

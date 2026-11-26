@@ -73,8 +73,12 @@ export type Step<S> = {
   /** The stage colour. @default "#ffffff" */
   background?: string
   labels?: StepLabel[]
-  /** A quiet cue when this step is reached going forward. */
-  cue?: SoundName
+  /**
+   * The step's own cue, when it does something (a click, a zoom, an answer
+   * landing). Steps without one play the step sound picked in the editor.
+   * "none" keeps the step silent.
+   */
+  cue?: SoundName | "none"
   /**
    * How long the step's own animation runs, in ms. A key pressed before it
    * ends finishes it instead of moving on. @default 700
@@ -92,6 +96,8 @@ export type WorldProps<S> = {
 export type Deck<S> = {
   id: string
   title: string
+  /** The step sound until one is picked in the editor. @default "tap" */
+  stepSound?: SoundName
   /** The camera scale for steps that don't set one. @default 1 */
   baseScale?: number
   labels: Record<string, LabelDef>
@@ -105,4 +111,6 @@ export type Tweaks = {
   /** Step ids in play order. Steps missing here keep their deck position. */
   order?: string[]
   labels?: Record<string, Partial<Pick<LabelDef, "x" | "y" | "text" | "color">>>
+  /** The sound for steps without a cue of their own. */
+  sound?: { step?: SoundName | "none" }
 }

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 import { setSound, soundStored, stepCue } from "./sound"
+import { StepSoundPicker } from "./step-sound-picker"
 import { Stage, labelColor } from "./stage"
 import { StepList } from "./step-list"
 import {
@@ -64,6 +65,7 @@ export function StepVideo<S>({
   const [save, setSave] = useState<SaveState>("idle")
   const digits = useRef("")
 
+  const stepSound = tweaks.sound?.step ?? deck.stepSound ?? "tap"
   const safeIndex = Math.min(index, steps.length - 1)
   const step = steps[safeIndex]
 
@@ -93,12 +95,13 @@ export function StepVideo<S>({
       const next = Math.max(0, Math.min(steps.length - 1, to))
       setIndex(next)
       setClock({ enteredAt: performance.now(), instant })
+      // Every step forward sounds: its own cue, or the picked step sound.
       if (!instant && next > safeIndex && sound) {
-        const cue = steps[next].cue
-        if (cue) stepCue(cue)
+        const cue = steps[next].cue ?? stepSound
+        if (cue !== "none") stepCue(cue)
       }
     },
-    [steps, safeIndex, sound]
+    [steps, safeIndex, sound, stepSound]
   )
 
   const forward = useCallback(() => {
@@ -247,6 +250,18 @@ export function StepVideo<S>({
 
           <div className="ml-auto flex items-center gap-1">
             <SaveStatus state={save} />
+            <StepSoundPicker
+              value={stepSound}
+              onChange={(next) => {
+                setTweaks((value) => ({ ...value, sound: { step: next } }))
+                if (next === "none") return
+                // Picking one plays it, and turns sound on to hear it.
+                if (!sound) {
+                  setSoundState(true)
+                  void setSound(true).then(() => stepCue(next))
+                } else stepCue(next)
+              }}
+            />
             <Button
               variant="ghost"
               size="sm"
