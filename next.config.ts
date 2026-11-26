@@ -6,7 +6,16 @@ import type { NextConfig } from "next"
  */
 const staticExport = process.env.NEXT_STATIC_EXPORT === "1"
 
+/**
+ * `*.dev.ts` route files only exist under `next dev`: the step video editor's
+ * save endpoint writes into the repo, which a deployed build must never do.
+ */
+const devOnly = process.env.NODE_ENV === "development"
+
 const nextConfig: NextConfig = {
+  pageExtensions: devOnly
+    ? ["dev.ts", "tsx", "ts", "jsx", "js"]
+    : ["tsx", "ts", "jsx", "js"],
   // The dev preview reaches this server over Tailscale, not localhost.
   allowedDevOrigins: ["*.tail3d6805.ts.net"],
   ...(staticExport
@@ -23,16 +32,18 @@ const nextConfig: NextConfig = {
             ["/playground/voice-input", "/playground/dictation-input"],
             ["/r/voice-input.json", "/r/dictation-input.json"],
             ["/skills/voice-input/:path*", "/skills/dictation-input/:path*"],
-          ].map(([source, destination]) => ({
-            source,
-            destination,
-            permanent: true,
-          })).concat({
-            // The Empty state page was removed.
-            source: "/playground/empty-state",
-            destination: "/playground/dictation-input",
-            permanent: false,
-          })
+          ]
+            .map(([source, destination]) => ({
+              source,
+              destination,
+              permanent: true,
+            }))
+            .concat({
+              // The Empty state page was removed.
+              source: "/playground/empty-state",
+              destination: "/playground/dictation-input",
+              permanent: false,
+            })
         },
       }),
 }
