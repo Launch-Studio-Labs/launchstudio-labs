@@ -7,7 +7,12 @@ import { cn } from "@/lib/utils"
 
 const fontSans = Geist({ subsets: ["latin"], variable: "--font-sans-family" })
 
-const fontSerif = Lora({ subsets: ["latin"], variable: "--font-serif-family" })
+const fontSerif = Lora({
+  subsets: ["latin"],
+  // Italic for the step video's captions (components/step-video).
+  style: ["normal", "italic"],
+  variable: "--font-serif-family",
+})
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],

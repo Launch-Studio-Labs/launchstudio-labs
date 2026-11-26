@@ -286,3 +286,15 @@
     --typeset-flow: 1em;
   }
 }
+
+/* Step video: a finished frame shows at once. Transitions stop; keyframe
+   animations (idle loops) keep running. See components/step-video. */
+[data-step-stage][data-instant],
+[data-step-stage][data-instant] * {
+  transition: none !important;
+}
+
+/* Nothing but the stage in a step video: no dev-tools badge either. */
+body:has([data-step-mode]) nextjs-portal {
+  display: none;
+}
